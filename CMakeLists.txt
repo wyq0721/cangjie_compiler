@@ -6,8 +6,11 @@
 
 cmake_minimum_required(VERSION 3.16.5)
 project(cangjie)
-set(CJ_SDK_VERSION "1.0.5")
-# add path for custom CMake modules and add cmake modules
+# Set default version if not provided externally
+if(NOT DEFINED CJ_SDK_VERSION)
+    set(CJ_SDK_VERSION "0.0.1" CACHE STRING "Cangjie SDK Version")
+endif()
+# Add path for custom CMake modules and add cmake modules
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules")
 
 set(CMAKE_CXX_STANDARD 17)
