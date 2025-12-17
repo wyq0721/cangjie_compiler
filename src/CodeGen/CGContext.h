@@ -350,10 +350,10 @@ public:
             return it->second;
         }
         uint16_t cnt = 0U;
-        auto superDef = classDef;
-        while (superDef) {
-            ++cnt;
-            superDef = superDef->GetSuperClassDef();
+        for (auto& it : classDef->GetVTable()) {
+            if (it.first->GetClassDef()->IsClass() && !it.second.empty()) {
+                ++cnt;
+            }
         }
         vtableSizeMap.emplace(classDef, cnt);
         return cnt;
