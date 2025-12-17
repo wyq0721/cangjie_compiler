@@ -66,8 +66,7 @@ llvm::Value* CodeGen::GenerateInvoke(IRBuilder2& irBuilder, const CHIRInvokeWrap
             auto vtableSizeOfIntroType = cgCtx.GetVTableSizeOf(introType);
             CJC_ASSERT(vtableSizeOfIntroType > 0);
             auto idxOfIntroType = irBuilder.getInt64(vtableSizeOfIntroType - 1U);
-            auto introTi = irBuilder.CreateTypeInfo(introType);
-            funcPtr = irBuilder.CallIntrinsicGetVTableFunc(ti, idxOfIntroType, idxOfVFunc, introTi);
+            funcPtr = irBuilder.CallIntrinsicGetVTableFunc(ti, idxOfIntroType, idxOfVFunc);
             auto& llvmCtx = cgCtx.GetLLVMContext();
             auto meta = llvm::MDTuple::get(llvmCtx, llvm::MDString::get(llvmCtx, GetTypeQualifiedName(*introType)));
             llvm::cast<llvm::Instruction>(funcPtr)->setMetadata("IntroType", meta);
@@ -137,8 +136,7 @@ llvm::Value* CodeGen::GenerateInvokeStatic(IRBuilder2& irBuilder, const CHIRInvo
         auto vtableSizeOfIntroType = cgCtx.GetVTableSizeOf(introType);
         CJC_ASSERT(vtableSizeOfIntroType > 0);
         auto idxOfIntroType = irBuilder.getInt64(vtableSizeOfIntroType - 1U);
-        auto introTi = irBuilder.CreateTypeInfo(introType);
-        funcPtr = irBuilder.CallIntrinsicGetVTableFunc(ti, idxOfIntroType, idxOfVFunc, introTi);
+        funcPtr = irBuilder.CallIntrinsicGetVTableFunc(ti, idxOfIntroType, idxOfVFunc);
         auto& llvmCtx = cgCtx.GetLLVMContext();
         auto meta = llvm::MDTuple::get(llvmCtx, llvm::MDString::get(llvmCtx, GetTypeQualifiedName(*introType)));
         llvm::cast<llvm::Instruction>(funcPtr)->setMetadata("IntroType", meta);

@@ -34,7 +34,6 @@ protected:
     llvm::Constant* GenFinalizerOfTypeTemplate() override;
     void PreActionOfGenTypeInfo() override;
     void PreActionOfGenTypeTemplate() override;
-    void PostActionOfGenTypeInfo() override;
 
 private:
     CGClassType() = delete;

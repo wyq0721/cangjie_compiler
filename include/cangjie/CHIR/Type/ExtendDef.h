@@ -18,7 +18,7 @@ friend class CustomDefTypeConverter;
 
 public:
     // ===--------------------------------------------------------------------===//
-    // Base Information
+    // Base Infomation
     // ===--------------------------------------------------------------------===//
     Type* GetType() const override;
     void SetType(CustomType& ty) override;

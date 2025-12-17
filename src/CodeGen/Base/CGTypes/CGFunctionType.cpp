@@ -238,17 +238,9 @@ llvm::Constant* CGFunctionType::GenTypeArgsOfTypeInfo()
     auto typeInfoPtrTy = CGType::GetOrCreateTypeInfoPtrType(cgMod.GetLLVMContext());
 
     std::vector<llvm::Constant*> constants;
-    auto returnCGType = CGType::GetOrCreate(cgMod, DeRef(*funcType.GetReturnType()));
-    (void)constants.emplace_back(returnCGType->GetOrCreateTypeInfo());
-    if (returnCGType->IsStaticGI()) {
-        cgCtx.AddDependentPartialOrderOfTypes(constants[0], this->typeInfo);
-    }
+    (void)constants.emplace_back(CGType::GetOrCreate(cgMod, DeRef(*funcType.GetReturnType()))->GetOrCreateTypeInfo());
     for (auto paramType : funcType.GetParamTypes()) {
-        auto paramCGType = CGType::GetOrCreate(cgMod, DeRef(*paramType));
-        auto it =constants.emplace_back(paramCGType->GetOrCreateTypeInfo());
-        if (paramCGType->IsStaticGI()) {
-            cgCtx.AddDependentPartialOrderOfTypes(it, this->typeInfo);
-        }
+        (void)constants.emplace_back(CGType::GetOrCreate(cgMod, DeRef(*paramType))->GetOrCreateTypeInfo());
     }
 
     auto typeOfGenericArgsGV = llvm::ArrayType::get(typeInfoPtrTy, constants.size());
