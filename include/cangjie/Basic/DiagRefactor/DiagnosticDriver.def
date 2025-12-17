@@ -55,6 +55,7 @@ ERROR(driver_path_exceeds_length_limit, "the path length for %s exceeds the syst
 ERROR(driver_unsupported_target_cpu, "cpu type '%s' is not supported for the current target")
 ERROR(driver_require_chir_directory, "expected one chir path to build")
 ERROR(driver_require_experimental, "compilation with input object files is currently experimental and requires the --experimental flag to be enabled")
+ERROR(driver_static_dystd_conflict, "flags --static and --dy-std are mutually exclusive and cannot be used together")
 
 
 // condition compilation arg error and warnings
