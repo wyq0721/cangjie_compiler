@@ -623,21 +623,10 @@ bool IsSizeTrustedInCompileUnit(CGModule& cgMod, const CHIR::Type& chirTy)
         return false;
     }
     auto typePackageName = StaticCast<const CHIR::ClassType&>(chirTy).GetClassDef()->GetPackageName();
+    auto typeModuleName = typePackageName.substr(0, typePackageName.find("."));
     auto compileUnitPkgName = cgMod.GetCGContext().GetCHIRPackage().GetName();
-    CJC_ASSERT(!typePackageName.empty() && !compileUnitPkgName.empty() && "Invalid package name.");
-    size_t pos = 0;
-    char ch = typePackageName[pos];
-    while (ch == compileUnitPkgName[pos]) {
-        if (ch == '.') {
-            return true;
-        }
-        ++pos;
-        if (pos == typePackageName.size() || pos == compileUnitPkgName.size()) {
-            return true;
-        }
-        ch = typePackageName[pos];
-    }
-    return false;
+    auto compileUnitModuleName = compileUnitPkgName.substr(0, compileUnitPkgName.find("."));
+    return typeModuleName == compileUnitModuleName;
 }
 } // namespace CodeGen
 } // namespace Cangjie
