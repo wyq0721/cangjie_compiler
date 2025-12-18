@@ -62,6 +62,7 @@ void Cangjie::Interop::ObjC::Desugar(InteropContext&& ctx)
         .Use<RewriteObjCPointerAccess>()
         .Use<CheckObjCFuncTypeArguments>()
         .Use<RewriteObjCFuncCall>()
+        .Use<RewriteObjCBlockConstruction>()
         .Use<DrainGeneratedDecls>()
         .Handle(ctx);
 }
