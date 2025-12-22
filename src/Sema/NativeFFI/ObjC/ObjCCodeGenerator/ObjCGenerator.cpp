@@ -970,6 +970,10 @@ void ObjCGenerator::GenerateDeleteObject()
     if (GenerateDeleteObject4CJMapping()) {
         return;
     }
+    // generate only for root @ObjCImpl classes
+    if (auto cd = DynamicCast<ClassDecl>(decl); cd && HasImplSuperClass(*cd)) {
+        return;
+    }
     AddWithIndent(GenerateFunctionDeclaration(ObjCFunctionType::INSTANCE, VOID_TYPE, DELETE_FUNC_NAME),
         GenerationTarget::BOTH, OptionalBlockOp::OPEN);
     AddWithIndent(GenerateDefaultFunctionImplementation(ctx.nameGenerator.GenerateDeleteCjObjectName(*decl),
@@ -980,6 +984,10 @@ void ObjCGenerator::GenerateDeleteObject()
 
 void ObjCGenerator::GenerateDealloc()
 {
+    // generate only for root @ObjCImpl classes
+    if (auto cd = DynamicCast<ClassDecl>(decl); cd && HasImplSuperClass(*cd)) {
+        return;
+    }
     AddWithIndent(GenerateFunctionDeclaration(ObjCFunctionType::INSTANCE, VOID_TYPE, DEALLOC_FUNC_NAME),
         GenerationTarget::BOTH, OptionalBlockOp::OPEN);
     AddWithIndent(
