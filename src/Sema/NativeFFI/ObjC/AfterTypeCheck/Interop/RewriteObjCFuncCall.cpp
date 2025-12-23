@@ -140,9 +140,9 @@ void RewriteObjCFuncCall::HandleImpl(InteropContext& ctx)
             block.emplace_back(ctx.factory.WrapEntity(std::move(call), *callExpr->ty));
             ctx.factory.SetDesugarExpr(
                 callExpr,
-                CreateBlock(
-                    std::move(block),
-                    callExpr->ty)
+                WrapReturningLambdaCall(
+                    ctx.typeManager,
+                    std::move(block))
             );
             return VisitAction::WALK_CHILDREN;
         }).Walk();
