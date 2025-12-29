@@ -7,6 +7,7 @@
 /include/cangjie/AST/ @Augus_Jan
 /include/cangjie/AST/ASTKind.inc @mini-tang
 /include/cangjie/Basic/ @Cangjie-hljyaozhen
+/include/cangjie/Basic/InteropCJPackageConfigReader.h @JasmineZhu
 /include/cangjie/CHIR/ @Mr_Kang_Yi
 /include/cangjie/CHIR/Interpreter @claudio_
 /include/cangjie/CHIR/Serializer @Cangjie-hljyaozhen
@@ -33,6 +34,7 @@
 
 /src/AST/ @Augus_Jan
 /src/Basic/ @Cangjie-hljyaozhen
+/src/Basic/InteropCJPackageConfigReader.cpp @JasmineZhu
 /src/CHIR/ @Mr_Kang_Yi
 /src/CodeGen/ @Yessy
 /src/ConditionalCompilation/ @mini-tang
