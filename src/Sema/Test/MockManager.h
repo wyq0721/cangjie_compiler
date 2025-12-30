@@ -121,6 +121,7 @@ private:
     OwnedPtr<AST::ArrayLit> CreateParamsInfo(const AST::FuncDecl& decl, AST::File& curFile) const;
     OwnedPtr<AST::ArrayLit> CreateTypeParamsInfo(const AST::FuncDecl& decl, AST::File& curFile) const;
     OwnedPtr<AST::CallExpr> CreateFuncInfo(AST::FuncDecl& funcDecl, AST::File& curFile);
+    OwnedPtr<AST::Expr> CreateOuterDeclInfo(AST::FuncDecl& funcDecl, AST::File& curFile) const;
     OwnedPtr<AST::CallExpr> CreateDeclKind(const AST::FuncDecl& decl) const;
     OwnedPtr<AST::CallExpr> CreateCallInfo(
         AST::FuncDecl& originalFunction, OwnedPtr<AST::Expr> mockedArgsArray, OwnedPtr<AST::Expr> typeArgsArray,
