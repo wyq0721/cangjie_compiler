@@ -501,10 +501,9 @@ bool CGExtensionDef::CreateExtensionDefForType(const CHIR::ClassType& inheritedT
     content[static_cast<size_t>(INTERFACE_FN_OR_INTERFACE_TI)] = iFnOrTi;
     content[static_cast<size_t>(IS_INTERFACE_TI)] =
         llvm::ConstantInt::get(llvm::Type::getInt8Ty(cgCtx.GetLLVMContext()), static_cast<uint8_t>(isTi));
-    auto flag = 0b00000001;
+    uint8_t flag = 0b00000001;
     flag |= inheritedType.IsDirectSuperTypeOf(*targetType, cgCtx.GetCHIRBuilder()) ? 0b10000000 : 0b00000000;
-    content[static_cast<size_t>(FLAG)] =
-        llvm::ConstantInt::get(llvm::Type::getInt8Ty(cgCtx.GetLLVMContext()), static_cast<uint8_t>(flag));
+    content[static_cast<size_t>(FLAG)] = llvm::ConstantInt::get(llvm::Type::getInt8Ty(cgCtx.GetLLVMContext()), flag);
     content[static_cast<size_t>(WHERE_CONDITION_FN)] = GenerateWhereConditionFn();
     content[static_cast<size_t>(FUNC_TABLE)] = GenerateFuncTableForType(inheritedType, vTable);
     content[static_cast<size_t>(FUNC_TABLE_SIZE)] =
