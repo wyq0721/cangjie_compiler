@@ -194,7 +194,8 @@ llvm::Value* IRBuilder2::CreateCallOrInvoke(const CGFunctionType& calleeType, ll
                         typeInfo = CreateBitCast(CreateTypeInfo(applyWrapper->GetThisType()),
                             CGType::GetOrCreateTypeInfoPtrType(cgMod.GetLLVMContext()));
                     }
-                    auto outerCHIRType = StaticCast<CHIR::ClassType*>(applyWrapper->GetOuterType(GetCGContext().GetCHIRBuilder()));
+                    auto outerCHIRType =
+                        StaticCast<CHIR::ClassType*>(applyWrapper->GetOuterType(GetCGContext().GetCHIRBuilder()));
                     if (GetCGContext().GetCGPkgContext().NeedOuterTypeInfo(*outerCHIRType)) {
                         auto introType = CreateBitCast(
                             CreateTypeInfo(outerCHIRType), CGType::GetOrCreateTypeInfoPtrType(cgMod.GetLLVMContext()));
@@ -212,7 +213,8 @@ llvm::Value* IRBuilder2::CreateCallOrInvoke(const CGFunctionType& calleeType, ll
                 } else {
                     auto thisVal = **(cgMod | applyWrapper->GetThisParam());
                     typeInfo = GetTypeInfoFromObject(thisVal);
-                    auto outerCHIRType = StaticCast<CHIR::ClassType*>(applyWrapper->GetOuterType(GetCGContext().GetCHIRBuilder()));
+                    auto outerCHIRType =
+                        StaticCast<CHIR::ClassType*>(applyWrapper->GetOuterType(GetCGContext().GetCHIRBuilder()));
                     if (!DeRef(*StaticCast<CHIRInvokeWrapper>(applyWrapper)->GetObject()->GetType())->IsAutoEnv() &&
                         GetCGContext().GetCGPkgContext().NeedOuterTypeInfo(*outerCHIRType)) {
                         auto introType =
