@@ -325,8 +325,14 @@ llvm::Constant* CGExtensionDef::GenerateOuterTi(const CHIR::VirtualFuncInfo& fun
     if (funcInfo.instance == nullptr) {
         return llvm::ConstantPointerNull::get(llvm::Type::getInt8PtrTy(llvmCtx));
     }
-
     auto parentType = DeRef(*funcInfo.typeInfo.parentType);
+    if (parentType->GetTypeArgs().empty()) {
+        // If `parentType` has no type arguments, it will not be accessed in the function, meaning
+        // the value of `outerTypeinfo` is unimportant and can be filled with any data. To reduce
+        // relocation, we choose to fill it with 0x1 instead of a TypeInfo pointer.
+        return llvm::ConstantExpr::getIntToPtr(
+            llvm::ConstantInt::get(llvm::Type::getInt64Ty(llvmCtx), 0x1), llvm::Type::getInt8PtrTy(llvmCtx));
+    }
     auto outerTi = CGType::GetOrCreate(cgMod, parentType)->GetOrCreateTypeInfo();
     return llvm::ConstantExpr::getBitCast(outerTi, llvm::Type::getInt8PtrTy(llvmCtx));
 }
@@ -355,7 +361,7 @@ llvm::Constant* CGExtensionDef::GenerateOuterTiFn(const CHIR::VirtualFuncInfo& f
         irBuilder.CreateRet(irBuilder.CreateBitCast(outerTi, typeInfoPtrType));
     } else {
         CJC_ASSERT(false &&
-            "GenerateOuterTiFn should not be called multiple times for the same function. SomeThing is wrong.");
+            "GenerateOuterTiFn should not be called multiple times for the same function. Something is wrong.");
     }
     return llvm::ConstantExpr::getBitCast(getOuterTiFn, llvm::Type::getInt8PtrTy(llvmCtx));
 }
@@ -479,6 +485,21 @@ bool CGExtensionDef::CreateExtensionDefForType(CGModule& cgMod, const std::strin
     return true;
 }
 
+namespace {
+bool IsSameRootPackage(const std::string& packageName1, const std::string& packageName2)
+{
+    // 1) a::b and a::b.c have the same root package
+    // 2) a::b and a::b have the same root package
+    // 3) a::b and a::bb don't have the same root package
+    // Here we add a dot at the end:
+    // e.g., com::pkga.b -> com::pkga.b.
+    // This transformation will make the following judgement easier.
+    std::string pkgName1 = packageName1 + '.';
+    std::string pkgName2 = packageName2+ '.';
+    return pkgName1.substr(0, pkgName1.find('.')) == pkgName2.substr(0, pkgName2.find('.'));
+}
+}
+
 bool CGExtensionDef::CreateExtensionDefForType(const CHIR::ClassType& inheritedType)
 {
     auto& vtable = chirDef.GetVTable();
@@ -495,10 +516,23 @@ bool CGExtensionDef::CreateExtensionDefForType(const CHIR::ClassType& inheritedT
     content[static_cast<size_t>(INTERFACE_FN_OR_INTERFACE_TI)] = iFnOrTi;
     content[static_cast<size_t>(IS_INTERFACE_TI)] =
         llvm::ConstantInt::get(llvm::Type::getInt8Ty(cgCtx.GetLLVMContext()), static_cast<uint8_t>(isTi));
-    auto flag = 0b00000001;
+    // "the lowest bit is 1" means funcTable has outerTypeInfos besides vfuncPtrs.
+    // outerTypeInfos are designed to optimize runtime performance.
+    uint8_t flag = 0b00000001;
+    // "the highest bit is 1" means inheritedType is the direct super type of targetType.
+    // It is designed to optimize runtime performance.
     flag |= inheritedType.IsDirectSuperTypeOf(*targetType, cgCtx.GetCHIRBuilder()) ? 0b10000000 : 0b00000000;
-    content[static_cast<size_t>(FLAG)] =
-        llvm::ConstantInt::get(llvm::Type::getInt8Ty(cgCtx.GetLLVMContext()), static_cast<uint8_t>(flag));
+    if (targetType->IsCustomType()) {
+        const auto& name1 = StaticCast<CHIR::CustomType>(targetType)->GetCustomTypeDef()->GetPackageName();
+        const auto& name2 = inheritedType.GetClassDef()->GetPackageName();
+        if (IsSameRootPackage(name1, name2)) {
+            // "the 2nd and 3rd bits are 11" means inheritedType and targetType are within the same root package,
+            // so there is no need for the runtime to refresh the funcTable. It is designed to optimize runtime
+            // performance.
+            flag |= 0b00000110;
+        }
+    }
+    content[static_cast<size_t>(FLAG)] = llvm::ConstantInt::get(llvm::Type::getInt8Ty(cgCtx.GetLLVMContext()), flag);
     content[static_cast<size_t>(WHERE_CONDITION_FN)] = GenerateWhereConditionFn();
     content[static_cast<size_t>(FUNC_TABLE)] =
         GenerateFuncTableForType(funcTableSize == 0 ? std::vector<CHIR::VirtualFuncInfo>() : found->second);
