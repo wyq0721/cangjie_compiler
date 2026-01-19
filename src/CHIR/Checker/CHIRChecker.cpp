@@ -3640,8 +3640,14 @@ void CHIRChecker::CheckInstanceOf(const InstanceOf& expr, const Func& topLevelFu
     }
     // 2. target type must be valid
     CheckTypeIsValid(*expr.GetType(), "target", expr, topLevelFunc);
-}
 
+    // 3. source must be an object
+    auto objectType = expr.GetObject()->GetType()->StripAllRefs();
+    if (!objectType->IsCustomType() && !objectType->IsGenericRelated() && !objectType->IsThis() &&
+        !objectType->IsCPointer()) {
+        TypeCheckError(expr, *expr.GetObject(), "custom type, generic type, this or CPointer", topLevelFunc);
+    }
+}
 void CHIRChecker::CheckTypeCast([[maybe_unused]] const TypeCast& expr, [[maybe_unused]] const Func& topLevelFunc)
 {
 }
