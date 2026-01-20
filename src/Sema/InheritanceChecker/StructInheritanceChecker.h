@@ -51,7 +51,7 @@ public:
     void Check();
 
 private:
-    void CheckMembersWithInheritedDecls(const InheritableDecl& decl);
+    void CheckMembersWithInheritedDecls(InheritableDecl& decl);
     MemberMap GetAndCheckInheritedInterfaces(const InheritableDecl& decl);
     MemberMap GetInheritedSuperMembers(
         const InheritableDecl& decl, Ty& baseTy, const AST::File& curFile, bool ignoreExtends = false);
@@ -59,7 +59,7 @@ private:
     void CollectExtendByInterfaceInherit(const std::set<Ptr<ExtendDecl>>& otherExtends, const ExtendDecl& curDecl,
         std::set<Ptr<ExtendDecl>, CmpNodeByPos>& ordered);
     std::optional<bool> DeterminingSkipExtendByInheritanceRelationship(
-        const AST::ExtendDecl& curDecl, const AST::ExtendDecl& ed, const Ptr<AST::Decl>& extendedDecl);
+        const AST::ExtendDecl& curDecl, AST::ExtendDecl& ed, const Ptr<AST::Decl>& extendedDecl);
     std::pair<MemberMap, MemberMap> GetVisibleExtendMembersForExtend(const InheritableDecl& decl);
     void CheckExtendExportDependence(
         const InheritableDecl& curExtend, const MemberSignature& interface, const MemberMap& implDecl);
@@ -82,6 +82,7 @@ private:
     void CheckSameNameInheritanceInfo(const MemberSignature& parent, const Decl& child) const;
     void CheckInheritanceAttributes(const MemberSignature& parent, const Decl& child) const;
     void CheckPropertyInheritance(const MemberSignature& parent, const Decl& child) const;
+    void CheckGenericTypeArgInfo(const Decl& parent, const Decl& child);
     void CheckGenericTypeArgInfo(const MemberSignature& parent, const MemberSignature& child) const;
     void CheckInheritanceForInterface(const MemberSignature& interface, const MemberSignature& child) const;
     bool CheckImplementationRelation(const MemberSignature& parent, const MemberSignature& child) const;
@@ -125,7 +126,7 @@ private:
      */
     void CheckInstDupFuncsInNominalDecls();
     VisitAction CheckInstDupFuncsRecursively(Node& node);
-    void CheckInstMemberSignatures(const InheritableDecl& decl, const std::vector<Ptr<Ty>>& instTys);
+    void CheckInstMemberSignatures(InheritableDecl& decl, const std::vector<Ptr<Ty>>& instTys);
     void CheckInstantiatedDecl(Decl& decl, const std::vector<Ptr<Ty>>& instTys);
     /**
      * Get visible extend decls in stable order for given @p decl with @p instTys .
@@ -200,5 +201,12 @@ private:
         bool needUpdate;
     };
 };
+
+std::vector<std::unordered_set<Ptr<Ty>>> GetAllGenericUpperBounds(TypeManager& tyMgr, const Decl& decl);
+
+void CheckGenericTypeBoundsMapped(const Decl& parent, const Decl& child,
+    std::vector<std::unordered_set<Ptr<Ty>>> parentBounds, std::vector<std::unordered_set<Ptr<Ty>>> childBounds,
+    DiagnosticEngine& diag, TypeManager& typeManager);
+
 } // namespace Cangjie
 #endif
