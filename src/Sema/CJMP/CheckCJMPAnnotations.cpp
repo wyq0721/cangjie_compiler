@@ -41,18 +41,15 @@ using namespace TypeCheckUtil;
 namespace {
 // Annotations not serialized in AST are matched via their corresponding attributes
 // Annotations with parameters MUST be serialized for common/platform matching
-const std::unordered_map<AnnotationKind, Attribute> NonSerializedAnnotations = {
+const std::unordered_map<AnnotationKind, Attribute> NON_SERIALIZED_ANNOTATIONS = {
     {AnnotationKind::C, Attribute::C},
     {AnnotationKind::JAVA_MIRROR, Attribute::JAVA_MIRROR},
     {AnnotationKind::JAVA_HAS_DEFAULT, Attribute::JAVA_HAS_DEFAULT},
     {AnnotationKind::OBJ_C_MIRROR, Attribute::OBJ_C_MIRROR},
-    // {AnnotationKind::OBJ_C_INIT, Attribute::OBJ_C_INIT},
-    // {AnnotationKind::OBJ_C_OPTIONAL, Attribute::OBJ_C_OPTIONAL},
 };
 
 // Annotations not supported on common/platform (neither serialized nor have attributes)
-const std::unordered_set<AnnotationKind> UnsupportedAnnotations = {AnnotationKind::JAVA, AnnotationKind::CALLING_CONV,
-    // AnnotationKind::FOREIGN_GETTER_NAME, AnnotationKind::FOREIGN_SETTER_NAME, AnnotationKind::NON_PRODUCT,
+const std::unordered_set<AnnotationKind> UNSUPPORTED_ANNOTATIONS = {AnnotationKind::JAVA, AnnotationKind::CALLING_CONV,
     AnnotationKind::CONSTSAFE, AnnotationKind::ENSURE_PREPARED_TO_MOCK, AnnotationKind::UNKNOWN};
 
 bool PostCheckDeprecatedAnnotation(const AST::Decl& platform, DiagnosticEngine& diag)
@@ -177,7 +174,7 @@ bool PostCheckNonSerializedAnnotations(const AST::Decl& common, const AST::Decl&
     bool result = true;
 
     // Iterate over all non-serialized annotations and check attribute consistency
-    for (const auto& [annoKind, attr] : NonSerializedAnnotations) {
+    for (const auto& [annoKind, attr] : NON_SERIALIZED_ANNOTATIONS) {
         if (common.TestAttr(attr) != platform.TestAttr(attr)) {
             // Find the platform annotation for this type to use in diagnostic
             auto platformAnno = FindFirstAnnotation(platform, annoKind);
@@ -204,8 +201,8 @@ bool PostCheckNonSerializedAnnotations(const AST::Decl& common, const AST::Decl&
 bool IsSpecialHandledAnnotation(const Annotation& anno)
 {
     return anno.kind == AnnotationKind::DEPRECATED || anno.kind == AnnotationKind::ATTRIBUTE ||
-        NonSerializedAnnotations.find(anno.kind) != NonSerializedAnnotations.end() ||
-        UnsupportedAnnotations.find(anno.kind) != UnsupportedAnnotations.end();
+        NON_SERIALIZED_ANNOTATIONS.find(anno.kind) != NON_SERIALIZED_ANNOTATIONS.end() ||
+        UNSUPPORTED_ANNOTATIONS.find(anno.kind) != UNSUPPORTED_ANNOTATIONS.end();
 }
 
 /**
@@ -300,7 +297,7 @@ bool IsCommonOrPlatform(const Node& node)
 
 bool IsUnsupported(const Annotation& anno)
 {
-    return UnsupportedAnnotations.count(anno.kind);
+    return UNSUPPORTED_ANNOTATIONS.count(anno.kind);
 }
 } // namespace
 
