@@ -88,6 +88,8 @@ private:
     OwnedPtr<AST::FuncDecl> CreateFieldAccessorDecl(
         const AST::VarDecl& fieldDecl, AST::FuncTy* accessorTy, AccessorKind kind) const;
     OwnedPtr<AST::FuncDecl> CreateForeignFunctionAccessorDecl(AST::FuncDecl& funcDecl) const;
+    OwnedPtr<AST::FuncBody> CreateForeignFunctionAccessorBody(
+        AST::FuncDecl& funcDecl, std::vector<OwnedPtr<AST::FuncParamList>> accessorFuncParamLists) const;
     OwnedPtr<AST::FuncDecl> GenerateVarDeclAccessor(AST::VarDecl& fieldDecl, AccessorKind kind);
     OwnedPtr<AST::CallExpr> GenerateAccessorCallForField(const AST::MemberAccess& memberAccess, AccessorKind kind);
     Ptr<AST::Expr> ReplaceFieldGetWithAccessor(AST::MemberAccess& memberAccess, bool isInConstructor);

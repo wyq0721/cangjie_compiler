@@ -1104,8 +1104,6 @@ OwnedPtr<FuncDecl> MockSupportManager::CreateFieldAccessorDecl(
 
 OwnedPtr<FuncDecl> MockSupportManager::CreateForeignFunctionAccessorDecl(FuncDecl& funcDecl) const
 {
-    static const auto NOTHING_TY = TypeManager::GetPrimitiveTy(TypeKind::TYPE_NOTHING);
-
     CJC_ASSERT(funcDecl.TestAttr(Attribute::FOREIGN));
     const auto& funcBody = funcDecl.funcBody;
 
@@ -1129,28 +1127,9 @@ OwnedPtr<FuncDecl> MockSupportManager::CreateForeignFunctionAccessorDecl(FuncDec
             CreateFuncParamList(std::move(accessorParamList)));
     }
 
-    std::vector<OwnedPtr<FuncArg>> args;
-    for (const auto& paramList : accessorFuncParamLists) {
-        for (const auto& param : paramList->params) {
-            args.emplace_back(CreateFuncArg(CreateRefExpr(*param)));
-        }
-    }
-
-    auto accessorFuncRetStmt = CreateReturnExpr(
-        CreateCallExpr(CreateRefExpr(funcDecl), std::move(args), nullptr, funcTy->retTy));
-    accessorFuncRetStmt->ty = NOTHING_TY;
-    std::vector<OwnedPtr<Node>> accessorFuncBodyStmts;
-    accessorFuncBodyStmts.emplace_back(std::move(accessorFuncRetStmt));
-    auto accessorFuncBodyBlock = CreateBlock(std::move(accessorFuncBodyStmts), NOTHING_TY);
-
-    auto accessorFuncBody = CreateFuncBody(
-        std::move(accessorFuncParamLists),
-        ASTCloner::Clone(funcBody->retType.get()),
-        std::move(accessorFuncBodyBlock),
-        funcTy);
-
     auto accessorName = MockUtils::GetForeignAccessorName(funcDecl) + MockUtils::mockAccessorSuffix;
-    auto accessorDecl = CreateFuncDecl(accessorName,  std::move(accessorFuncBody), funcTy);
+    auto accessorDecl = CreateFuncDecl(
+        accessorName, CreateForeignFunctionAccessorBody(funcDecl, std::move(accessorFuncParamLists)), funcTy);
     accessorDecl->curFile = funcDecl.curFile;
     accessorDecl->begin = funcDecl.begin;
     accessorDecl->end = funcDecl.end;
@@ -1163,6 +1142,38 @@ OwnedPtr<FuncDecl> MockSupportManager::CreateForeignFunctionAccessorDecl(FuncDec
     accessorDecl->EnableAttr(Attribute::NO_MANGLE);
 
     return accessorDecl;
+}
+
+OwnedPtr<FuncBody> MockSupportManager::CreateForeignFunctionAccessorBody(
+    FuncDecl& funcDecl, std::vector<OwnedPtr<FuncParamList>> accessorFuncParamLists) const
+{
+    static const auto NOTHING_TY = TypeManager::GetPrimitiveTy(TypeKind::TYPE_NOTHING);
+
+    CJC_ASSERT(funcDecl.ty->kind == TypeKind::TYPE_FUNC);
+    auto funcTy = Ptr(StaticCast<FuncTy>(funcDecl.ty));
+    const auto& funcBody = funcDecl.funcBody;
+
+    std::vector<OwnedPtr<FuncArg>> args;
+    for (const auto& paramList : accessorFuncParamLists) {
+        for (const auto& param : paramList->params) {
+            auto funcArg = CreateFuncArg(CreateRefExpr(*param));
+            if (auto varray = DynamicCast<VArrayTy>(funcArg->ty)) {
+                funcArg->withInout = true;
+                funcArg->ty = typeManager.GetPointerTy(varray->typeArgs[0]);
+            }
+            args.emplace_back(std::move(funcArg));
+        }
+    }
+
+    auto accessorFuncRetStmt =
+        CreateReturnExpr(CreateCallExpr(CreateRefExpr(funcDecl), std::move(args), nullptr, funcTy->retTy));
+    accessorFuncRetStmt->ty = NOTHING_TY;
+    std::vector<OwnedPtr<Node>> accessorFuncBodyStmts;
+    accessorFuncBodyStmts.emplace_back(std::move(accessorFuncRetStmt));
+    auto accessorFuncBodyBlock = CreateBlock(std::move(accessorFuncBodyStmts), NOTHING_TY);
+
+    return CreateFuncBody(std::move(accessorFuncParamLists), ASTCloner::Clone(funcBody->retType.get()),
+        std::move(accessorFuncBodyBlock), funcTy);
 }
 
 OwnedPtr<FuncDecl> MockSupportManager::GenerateVarDeclAccessor(VarDecl& fieldDecl, AccessorKind kind)
@@ -1884,7 +1895,11 @@ Ptr<AST::FuncDecl> MockSupportManager::FindDefaultAccessorImplementation(
         return MockUtils::FindMemberDecl<FuncDecl>(*extendDecl, accessorDecl->identifier);
     }
 
-    return MockUtils::FindMemberDecl<FuncDecl>(*Ty::GetDeclOfTy(baseTy), accessorDecl->identifier);
+    if (auto decl = Ty::GetDeclOfTy(baseTy)) {
+        return MockUtils::FindMemberDecl<FuncDecl>(*decl, accessorDecl->identifier);
+    }
+
+    return nullptr;
 }
 
 void MockSupportManager::ReplaceInterfaceDefaultFunc(
