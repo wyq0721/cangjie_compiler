@@ -920,7 +920,6 @@ llvm::Value* IRBuilder2::CreateGEP(
 CGValue IRBuilder2::CreateGEP(
     const CGValue& cgVal, const std::vector<uint64_t>& idxList, [[maybe_unused]] const llvm::Twine& name)
 {
-    std::vector<llvm::Value*> idxes;
     auto ret = cgVal.GetRawValue();
     auto eleType = cgVal.GetCGType()->GetPointerElementType();
     CJC_NULLPTR_CHECK(eleType);

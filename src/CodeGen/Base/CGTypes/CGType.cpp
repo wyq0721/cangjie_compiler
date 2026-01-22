@@ -134,7 +134,7 @@ CGType* CGTypeMgr::GetConcreteCGTypeFor(CGModule& cgMod, const CHIR::Type& chirT
             break;
         }
         default:
-            CJC_ASSERT(false && "Should not reach here: not a contract type from chir.");
+            CJC_ASSERT_WITH_MSG(false, "Should not reach here: not a contract type from chir.");
             return nullptr;
     }
     cgMod.GetCGContext().Add2CGTypePool(cgType);
@@ -187,6 +187,7 @@ CGType* CGType::GetOrCreateWithNode(CGModule& cgModule, const CHIR::Value* chirN
     bool forWrapper)
 {
     auto chirTy = chirNode->GetType();
+    CJC_NULLPTR_CHECK(chirTy);
     CGType* cgType = nullptr;
     if (DynamicCast<const CHIR::LocalVar*>(chirNode)) {
         cgType = CGTypeMgr::GetConcreteCGTypeFor(cgModule, *chirTy, TypeExtraInfo{0, true, false, false, {}});
@@ -236,8 +237,8 @@ CGType::CGType(CGModule& cgMod, CGContext& cgCtx, const CHIR::Type& chirType, CG
 
 llvm::GlobalVariable* CGType::GetOrCreateTypeInfo()
 {
-    CJC_ASSERT(!chirType.IsThis() && "Should not get typeinfo of ThisType.");
-    CJC_ASSERT(!chirType.IsRef() && "Should not get typeinfo of RefType.");
+    CJC_ASSERT_WITH_MSG(!chirType.IsThis(), "Should not get typeinfo of ThisType.");
+    CJC_ASSERT_WITH_MSG(!chirType.IsRef(), "Should not get typeinfo of RefType.");
     if (typeInfo) {
         return typeInfo;
     }
@@ -254,7 +255,7 @@ llvm::GlobalVariable* CGType::GetOrCreateTypeInfo()
         return GetOrCreateGenericCustomTypeInfo();
     }
     cgMod.GetCGContext().AddCodeGenAddedFuncsOrVars(chirType, tiName);
-    CJC_ASSERT(typeInfo && "This type does not have a typeinfo GV, please check the caller.");
+    CJC_ASSERT_WITH_MSG(typeInfo, "This type does not have a typeinfo GV, please check the caller.");
     typeInfo->addAttribute(GC_KLASS_ATTR);
     if (!IsModifiableClass(chirType)) {
         typeInfo->addAttribute(NOT_MODIFIABLE_CLASS_ATTR);
@@ -282,7 +283,7 @@ llvm::GlobalVariable* CGType::GetOrCreateTypeTemplate()
             llvm::cast<llvm::GlobalVariable>(cgMod.GetLLVMModule()->getOrInsertGlobal(ttName, typeTemplateType));
         cgMod.GetCGContext().AddCodeGenAddedFuncsOrVars(chirType, ttName);
     }
-    CJC_ASSERT(typeTemplate && "This type does not have a type-template GV, please check the caller.");
+    CJC_ASSERT_WITH_MSG(typeTemplate, "This type does not have a type-template GV, please check the caller.");
     cgMod.DelayGenTypeTemplate(this);
     return typeTemplate;
 }
@@ -1043,7 +1044,7 @@ std::string GetTypeQualifiedNameForReflect(CGModule& cgMod, const CHIR::Type& t,
             return forNameFieldOfTi ? typeQualifiedName : (CHIR::MANGLE_BOX_STR + typeQualifiedName + ">");
         }
         default:
-            CJC_ASSERT(false && "Should not reach here.");
+            CJC_ASSERT_WITH_MSG(false, "Should not reach here.");
             return "";
     }
 }

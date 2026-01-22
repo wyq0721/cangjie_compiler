@@ -274,7 +274,7 @@ public:
         CGType* fieldType{nullptr};
         llvm::Value* instance{nullptr};
         const CHIR::Type& baseTy;
-        CodeGenFieldInfo(const std::string className, const std::string& qualifiedName, const std::string fieldName,
+        CodeGenFieldInfo(const std::string& className, const std::string& qualifiedName, const std::string& fieldName,
             const CHIR::Type* fieldChirType, CGType* fieldType, llvm::Value* instance, const CHIR::Type& baseTy)
             : className(className),
               qualifiedName(qualifiedName),
