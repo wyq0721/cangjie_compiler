@@ -47,6 +47,16 @@ private:
     ImportManager& importManager;
 };
 
+std::string GetRefIdentifier(Node& node)
+{
+    if (node.astKind == ASTKind::REF_TYPE) {
+        return StaticCast<RefType>(&node)->ref.identifier.Val();
+    }
+    if (node.astKind == ASTKind::REF_EXPR) {
+        return StaticCast<RefExpr>(&node)->ref.identifier.Val();
+    }
+    return "";
+}
 } // namespace
 
 void CheckUnusedImportImpl::AddUsedExtendDeclTarget(
@@ -100,21 +110,6 @@ void CheckUnusedImportImpl::AddUsedTargetWithIdentifier(Node& node, const std::s
         if (auto ed = DynamicCast<ExtendDecl>(target->outerDecl); ed != nullptr) {
             AddUsedExtendDeclTarget(ed, fileUsed);
         }
-    }
-}
-
-std::string GetRefIdentifier(Node& node)
-{
-    switch (node.astKind) {
-        case ASTKind::REF_TYPE: {
-            return DynamicCast<const RefType*>(&node)->ref.identifier.Val();
-        }
-        case ASTKind::REF_EXPR: {
-            return DynamicCast<const RefExpr*>(&node)->ref.identifier.Val();
-        }
-
-        default:
-            return "";
     }
 }
 
