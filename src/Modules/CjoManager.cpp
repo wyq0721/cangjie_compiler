@@ -304,7 +304,7 @@ bool CjoManager::NeedCollectDependency(const std::string& curName, bool isCurMac
 
 void CjoManager::LoadFilesOfCommonPart(Ptr<Package> pkg)
 {
-    if (!impl->GetGlobalOptions().IsCompilingCJMPPlatform() && impl->GetGlobalOptions().commonPartCjos.empty()) {
+    if (!impl->GetGlobalOptions().IsCompilingCJMPSpecific() && impl->GetGlobalOptions().commonPartCjos.empty()) {
         return;
     }
     for (Ptr<ASTLoader> commonLoader : GetCommonPartCjos(pkg->fullPackageName)) {
@@ -334,7 +334,7 @@ void CjoManager::LoadPackageDeclsOnDemand(const std::vector<Ptr<Package>>& packa
     loaders.reserve(q.size());
     // Load common part cjo
     for (auto pkg : packages) {
-        if (impl->GetGlobalOptions().IsCompilingCJMPPlatform() || !impl->GetGlobalOptions().commonPartCjos.empty()) {
+        if (impl->GetGlobalOptions().IsCompilingCJMPSpecific() || !impl->GetGlobalOptions().commonPartCjos.empty()) {
             std::string expectedPackageName = pkg->fullPackageName;
             for (Ptr<ASTLoader> commonLoader : GetCommonPartCjos(expectedPackageName)) {
                 commonLoader->LoadPackageDecls();

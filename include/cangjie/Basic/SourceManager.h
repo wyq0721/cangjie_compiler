@@ -139,7 +139,12 @@ public:
      *   \ /
      *    D
      *
+     * @param normalizedPath The path of file.
+     * @param buffer Source buffer of the file.
+     * @param fileHash Hash ID of the file.
+     * @param packageName The package name of the file.
      * @param isCjmpFile Mark that file ID should be calculated as hash of relative path.
+     * @param updateBuffer Mask if the buffer should be updated.
      */
     unsigned int GetFileId(
         const std::string& normalizedPath,
@@ -153,11 +158,16 @@ public:
      * Add a source to SourceManager.
      * @param path File path.
      * @param buffer Source code.
+     * @param packageName The package name of the file.
+     * @param isCjmpFile Mark that file ID should be calculated as hash of relative path.
      */
     unsigned int AddSource(const std::string& path, const std::string& buffer,
         std::optional<std::string> packageName = std::nullopt, bool isCjmpFile = false);
     /**
      * Add source to SourceManager. Package name default to null.
+     * @param path File path.
+     * @param buffer Source code.
+     * @param isCjmpFile Mark that file ID should be calculated as hash of relative path.
      */
     unsigned int AppendSource(const std::string& path, const std::string& buffer, bool isCjmpFile = false);
 

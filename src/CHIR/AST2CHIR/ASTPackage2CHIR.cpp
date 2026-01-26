@@ -1367,7 +1367,7 @@ void AST2CHIR::TranslateVecDecl(const std::vector<Ptr<const AST::Decl>>& decls, 
 bool AST2CHIR::MaybeDeserialized(const AST::Decl& decl) const
 {
     // When the specific is compiled and decl is from common part or generic instantiated or imported or specific decl.
-    if (mergingPlatform &&
+    if (mergingSpecific &&
         decl.TestAnyAttr(AST::Attribute::SPECIFIC, AST::Attribute::FROM_COMMON_PART,
             AST::Attribute::GENERIC_INSTANTIATED, AST::Attribute::IMPORTED)) {
         return true;
@@ -1625,7 +1625,7 @@ void AST2CHIR::ResetSpecificFunc(const AST::FuncDecl& funcDecl, Func& func)
 
 void AST2CHIR::ProcessCommonAndSpecificExtends()
 {
-    bool compilePlatform = opts.IsCompilingCJMPPlatform();
+    bool compilePlatform = opts.IsCompilingCJMPSpecific();
     if (!compilePlatform) {
         return;
     }

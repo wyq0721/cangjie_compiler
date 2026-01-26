@@ -266,12 +266,12 @@ Func* Translator::TranslateVarsInit(const AST::Decl& decl)
 
 inline bool DeclaredInDifferentFiles(const AST::Decl& d1, const AST::Decl& d2)
 {
-    return d1.curFile && d2.curFile && d1.curFile->fileHash != d2.curFile->fileHash;
+    return d1.curFile && d2.curFile && d1.curFile != d2.curFile;
 }
 
 bool Translator::ShouldTranslateMember(const AST::Decl& decl, const AST::Decl& member) const
 {
-    if (!mergingPlatform) {
+    if (!mergingSpecific) {
         return true;
     }
 
@@ -289,7 +289,7 @@ bool Translator::ShouldTranslateMember(const AST::Decl& decl, const AST::Decl& m
     }
 
     bool justIntroducedSpecific = !decl.TestAttr(AST::Attribute::IMPORTED) && decl.TestAttr(AST::Attribute::SPECIFIC);
-    if (mergingPlatform && justIntroducedSpecific && DeclaredInDifferentFiles(decl, member)) {
+    if (mergingSpecific && justIntroducedSpecific && DeclaredInDifferentFiles(decl, member)) {
         // Skip decls from common part when compiling platform
         return false;
     }
@@ -391,7 +391,7 @@ void Translator::TranslateClassLikeMemberFuncDecl(ClassDef& classDef, const AST:
 bool Translator::SkipMemberFuncInSpecificMerging(ClassDef& classDef, const AST::FuncDecl& decl)
 {
     // Check if we're in specific merging mode with deserialized class
-    if (!mergingPlatform || !classDef.TestAttr(CHIR::Attribute::DESERIALIZED)) {
+    if (!mergingSpecific || !classDef.TestAttr(CHIR::Attribute::DESERIALIZED)) {
         return false;
     }
 

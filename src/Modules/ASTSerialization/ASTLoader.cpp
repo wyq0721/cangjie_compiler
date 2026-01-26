@@ -149,7 +149,7 @@ void SetOuterDeclForMemberDecl(Decl& member, Decl& parentDecl)
 
 inline bool DeclaredInDifferentFiles(const Decl& d1, const Decl& d2)
 {
-    return d1.curFile && d2.curFile && d1.curFile->fileHash != d2.curFile->fileHash;
+    return d1.curFile && d2.curFile && d1.curFile != d2.curFile;
 }
 } // namespace
 
@@ -314,9 +314,6 @@ void ASTLoader::ASTLoaderImpl::PreloadCommonPartOfPackage(AST::Package& pkg)
     CJC_NULLPTR_CHECK(package);
 
     curPackage = &pkg; // Deserialize common part AST into current specific package AST
-
-    // Remove existing isCommon files from pkg before loading new common part for lsp incremental compilation.
-    // Utils::EraseIf(pkg.files, [](const auto& file) { return file->isCommon; });
 
     allTypes.resize(package->allTypes()->size(), nullptr);
     auto fileSize = package->allFiles()->size();

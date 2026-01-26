@@ -270,7 +270,7 @@ ERROR(parse_specific_member_must_have_implementation, "the member %s must have b
 ERROR(parse_expected_type_with_cjmp_var, "'%s' %s type must be specified")
 ERROR(parse_cjmp_outdecl_miss_match, "%s is %s, but %s is not %s")
 ERROR(parse_cjmp_static_init, "static init can not be '%s'")
-ERROR(parse_unexpected_cjmp_decl, "to compile with common/specific declarations specify correct compiler options")
+ERROR(parse_unexpected_cjmp_decl, "to compile with common/specific declarations, correct compiler options must be specified")
 ERROR(parse_cjmp_generic_decl, "generic declaration can not be '%s'")
 ERROR(parse_cjmp_pattern_decl, "%s pattern can not be '%s'")
 ERROR(parse_cjmp_in_common_ctor_required, "at least one constructor is required in common %s '%s'")

@@ -394,7 +394,7 @@ void GlobalDeclAnalysis::AnalysisDependency(const ElementList<Ptr<const AST::Dec
         std::vector<Ptr<const AST::Decl>> dependencies;
         std::vector<Ptr<const AST::Decl>> localConstVarDeps;
         AnalysisDepOf(*node, dependencies, localConstVarDeps);
-        if (mergingPlatform) {
+        if (mergingSpecific) {
             ReplaceCommonDependenciesWithSpecific(dependencies);
             RestoreCJMPDependencies(node, dependencies);
         }
