@@ -131,7 +131,7 @@ Ptr<Value> Translator::Visit(const AST::MatchExpr& matchExpr)
 void Translator::TranslateMatchWithSelector(const AST::MatchExpr& matchExpr, Ptr<Value> retVal)
 {
     auto selectorVal = TranslateExprArg(*matchExpr.selector);
-    SetSkipPrintWarning(selectorVal);
+    SetSkipPrintWarning(*selectorVal);
     auto endBlock = CreateBlock();
     size_t caseNum = matchExpr.matchCases.size();
     bool needScope = matchExpr.sugarKind != AST::Expr::SugarKind::IS && matchExpr.sugarKind != AST::Expr::SugarKind::AS;
@@ -566,7 +566,7 @@ Ptr<Value> Translator::HandleConstPattern(
 {
     if (constPattern.operatorCallExpr == nullptr) {
         auto litVal = TranslateExprArg(*constPattern.literal);
-        SetSkipPrintWarning(litVal);
+        SetSkipPrintWarning(*litVal);
         return CreateAndAppendExpression<BinaryExpression>(
             originLoc, builder.GetBoolTy(), ExprKind::EQUAL, value, litVal, currentBlock)
             ->GetResult();
@@ -714,7 +714,7 @@ void Translator::TranslateMatchAsTable(const AST::MatchExpr& matchExpr, Ptr<Valu
 {
     auto selectorTy = matchExpr.selector->ty;
     auto selectorVal = TranslateExprArg(*matchExpr.selector);
-    SetSkipPrintWarning(selectorVal);
+    SetSkipPrintWarning(*selectorVal);
     // Previously checked that selector ty is integer, char or enum.
     auto enumDecl = DynamicCast<AST::EnumDecl>(AST::Ty::GetDeclOfTy(selectorTy));
     if (!enumDecl) {

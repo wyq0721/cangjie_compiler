@@ -341,6 +341,7 @@ void VarInitCheck::RaiseUninitedDefMemberError(const MaybeUninitDomain& state, c
     // Skip report error when uninitedMember are all common member for CJMP.
     if (std::all_of(uninitedMemberIdx.begin(), uninitedMemberIdx.end(),
         [&members](size_t idx) {
+            CJC_ASSERT(idx < members.size());
             auto member = members[idx];
             // Skip COMMON which is just added(not deserialized ones), they may not yet be initialized and it's ok.
             return member.TestAttr(Attribute::COMMON) && !member.TestAttr(Attribute::DESERIALIZED);

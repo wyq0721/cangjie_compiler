@@ -145,9 +145,6 @@ AttributeInfo CreateAttr(const uint64_t attrs)
 std::string GetMangleNameFromIdentifier(std::string& identifier)
 {
     CJC_ASSERT(!identifier.empty());
-    if (identifier.empty()) {
-        return "";
-    }
     if (identifier[0] == '@') {
         return identifier.substr(1);
     } else {

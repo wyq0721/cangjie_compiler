@@ -298,9 +298,9 @@ bool IsCrossPackage(const Cangjie::Position& pos, const std::string& currentPack
  *
  * @param value The value to set the skip print warning flag for.
  */
-inline void SetSkipPrintWarning(Ptr<Value> value)
+inline void SetSkipPrintWarning(Value& value)
 {
-    value->Set<SkipCheck>(SkipKind::SKIP_DCE_WARNING);
+    value.Set<SkipCheck>(SkipKind::SKIP_DCE_WARNING);
 }
 
 inline void MergeEffectMap(const OptEffectCHIRMap& from, OptEffectCHIRMap& to)

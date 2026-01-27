@@ -252,7 +252,7 @@ void TypeAnalysis::HandleApplyExpr(TypeDomain& state, const Apply* apply, Value*
         return;
     }
 
-    Func* calleeFunc = DynamicCast<Func*>(callee);
+    auto calleeFunc = VirtualCast<Func*>(callee);
     auto it = realRetTyMap.find(calleeFunc);
     if (it == realRetTyMap.end()) {
         HandleDefaultExpr(state, apply);
