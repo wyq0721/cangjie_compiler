@@ -616,13 +616,6 @@ void ParserImpl::CheckMemberFuncJavaMirror(FuncDecl& decl)
 
 void ParserImpl::CheckMemberFuncObjCMirror(FuncDecl& func)
 {
-    if (func.outerDecl && func.outerDecl->TestAttr(Attribute::OBJ_C_MIRROR_SUBTYPE)
-        && !func.outerDecl->TestAttr(Attribute::OBJ_C_MIRROR)
-        && !func.funcBody && !func.funcBody->paramLists.empty()
-        && !func.funcBody->paramLists[0]->params.empty()) {
-            ParseDiagnoseRefactor(DiagKindRefactor::parse_objc_impl_method_must_have_foreign_name, func);
-    }
-
     if (!func.outerDecl || !func.outerDecl->TestAttr(Attribute::OBJ_C_MIRROR)) {
         return;
     }
@@ -696,13 +689,6 @@ void ParserImpl::CheckInitCtorDeclJavaMirror(FuncDecl& ctor)
 
 void ParserImpl::CheckInitCtorDeclObjCMirror(FuncDecl& ctor)
 {
-    if (ctor.outerDecl && ctor.outerDecl->TestAttr(Attribute::OBJ_C_MIRROR_SUBTYPE)
-        && !ctor.outerDecl->TestAttr(Attribute::OBJ_C_MIRROR)
-        && !ctor.funcBody && !ctor.funcBody->paramLists.empty()
-        && !ctor.funcBody->paramLists[0]->params.empty()) {
-            ParseDiagnoseRefactor(DiagKindRefactor::parse_objc_impl_ctor_must_have_foreign_name, ctor);
-    }
-
     if (!ctor.outerDecl || !ctor.outerDecl->TestAttr(Attribute::OBJ_C_MIRROR)) {
         return;
     }

@@ -259,7 +259,7 @@ bool ParserImpl::CanBeAbstract(const AST::Decl& decl, ScopeKind scopeKind) const
         }
         case ASTKind::PRIMARY_CTOR_DECL: {
             auto pcd = StaticAs<ASTKind::PRIMARY_CTOR_DECL>(pdecl);
-            if (!pcd->funcBody && pcd->funcBody->body) {
+            if (pcd->funcBody && pcd->funcBody->body) {
                 return false;
             }
             break;
