@@ -74,7 +74,7 @@ Translator Translator::SetupContextForLambda(const AST::Block& body)
             trans.SetSymbolTable(*node, *symbol);
             continue;
         }
-        auto vd = DynamicCast<AST::VarDecl>(node);
+        auto vd = StaticCast<AST::VarDecl>(node);
         if (!vd->TestAttr(AST::Attribute::IS_CAPTURE) || vd->isVar) {
             trans.SetSymbolTable(*node, *symbol);
             continue;

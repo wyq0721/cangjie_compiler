@@ -42,7 +42,7 @@ struct AnnoInstanceValue
 
 /// object representation in AnnoInstanceValue
 struct AnnoInstanceClassInst {
-    const InheritableDecl* cl;
+    const InheritableDecl* cl{nullptr};
     std::vector<std::pair<std::string, AnnoInstanceValue>> a;
 
     const AnnoInstanceValue* GetField(const std::string& s) const
