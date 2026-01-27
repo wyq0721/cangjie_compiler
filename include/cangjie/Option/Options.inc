@@ -585,7 +585,7 @@ OPTION("--import-path", IMPORT_PATH, SEPARATED, { BACKEND(ALL) },
 OPTION("--plugin", PLUGIN_PATH, SEPARATED, { BACKEND(CJNATIVE) },
     { GROUP(GLOBAL) COMMA GROUP(STABLE) COMMA GROUP(VISIBLE) }, nullptr, {}, MULTIPLE_OCCURRENCE,
     "Specify the dynamic library path of compiler plugin")
-OPTION("--common-part-cjo", COMMON_PART_PATH, FLAG_WITH_ARG, { BACKEND(CJNATIVE) },
+OPTION("--common-part-cjo", COMMON_PART_PATH, SEPARATED, { BACKEND(CJNATIVE) },
     { GROUP(GLOBAL) COMMA GROUP(VISIBLE) }, nullptr, {}, MULTIPLE_OCCURRENCE,
     "Add .cjo path for common part of package")
 OPTION("--incremental-compile", INCRE_COMPILE, FLAG, {BACKEND(CJNATIVE)},

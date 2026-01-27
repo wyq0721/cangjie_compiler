@@ -306,7 +306,7 @@ void RemoveMacroCallFile(File& file)
 void GenerateMacroCallFile(const std::vector<Ptr<File>>& fileSucVec,
     std::map<Ptr<File>, std::vector<Ptr<Node>>>& macroCallMap, CompilerInstance& ci)
 {
-    bool isCjmpFile = ci.invocation.globalOptions.IsCompilingCJMPPlatform();
+    bool isCjmpFile = ci.invocation.globalOptions.IsCompilingCJMPSpecific();
     auto& sm = ci.GetSourceManager();
     std::string content;
     for (const auto& file : fileSucVec) {

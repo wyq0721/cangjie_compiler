@@ -1159,14 +1159,14 @@ public:
         return emitCHIRPhase != CandidateEmitCHIRPhase::NA;
     }
 
-    bool IsCompilingCJMPPlatform() const
+    bool IsCompilingCJMPSpecific() const
     {
         return inputChirFiles.size() > 0;
     }
 
     bool IsCompilingCJMP() const
     {
-        return IsCompilingCJMPPlatform() || outputMode == GlobalOptions::OutputMode::CHIR;
+        return IsCompilingCJMPSpecific() || outputMode == GlobalOptions::OutputMode::CHIR;
     }
 
 protected:

@@ -171,7 +171,7 @@ std::pair<InitOrder, bool> AST2CHIR::SortGlobalVarDecl(const AST::Package& pkg)
     }
 
     auto analysis = GlobalDeclAnalysis(
-        diag, gim, kind, funcsAndVars, localConstVars, staticInitFuncInfoMap, outputCHIR, mergingPlatform);
+        diag, gim, kind, funcsAndVars, localConstVars, staticInitFuncInfoMap, outputCHIR, mergingSpecific);
     auto initOrder = analysis.Run(nodesWithDeps, fileAndVarMap, cachedInfo);
 
     // Speically, now we want to flattern the local const VarWithPattern decl which will be useful in translation later.
@@ -485,7 +485,7 @@ bool AST2CHIR::TryToDeserializeCHIR()
     bool success = true;
     for (auto chirFile : chirFiles) {
         success &= CHIRDeserializer::Deserialize(chirFile, builder, phase, true);
-        mergingPlatform = true;
+        mergingSpecific = true;
     }
     return success;
 }
@@ -517,7 +517,7 @@ bool AST2CHIR::ToCHIRPackage(AST::Package& node)
         return false;
     }
     // Translating common alongside with merging specific is not supported
-    CJC_ASSERT(!(outputCHIR && mergingPlatform));
+    CJC_ASSERT(!(outputCHIR && mergingSpecific));
     package->SetPackageAccessLevel(BuildPackageAccessLevel(node.accessible));
     RegisterAllSources();
     CJC_NULLPTR_CHECK(package);
