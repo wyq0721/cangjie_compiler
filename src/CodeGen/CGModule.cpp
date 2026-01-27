@@ -176,12 +176,12 @@ void CGModule::GenIncremental()
         // Save .bc for the potential incremental compilation before deeper erasure.
         auto cachePath = option.GenerateCachedPathNameForCodeGen(module->getSourceFileName(), "_cache.bc");
         CodeGen::SaveToBitcodeFile(*module, cachePath);
-        if (auto namedMD = module->getNamedMetadata("CodeGenAddedForIncr"); namedMD) {
-            namedMD->eraseFromParent();
-        }
-        if (auto namedMD = module->getNamedMetadata("StaticGenericTIsForIncr"); namedMD) {
-            namedMD->eraseFromParent();
-        }
+    }
+    if (auto namedMD = module->getNamedMetadata("CodeGenAddedForIncr"); namedMD) {
+        namedMD->eraseFromParent();
+    }
+    if (auto namedMD = module->getNamedMetadata("StaticGenericTIsForIncr"); namedMD) {
+        namedMD->eraseFromParent();
     }
 }
 
