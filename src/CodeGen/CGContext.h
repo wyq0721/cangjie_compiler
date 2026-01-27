@@ -28,7 +28,7 @@
 #include "cangjie/CHIR/CHIRCasting.h"
 
 namespace llvm::Intrinsic {
-typedef unsigned ID;
+using ID = unsigned;
 }
 
 namespace Cangjie {
