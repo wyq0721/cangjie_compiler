@@ -79,7 +79,7 @@ void Translator::StoreRValueToLValue(const AST::VarDecl& decl, Value& rval, Ptr<
     auto leftType = TranslateType(*(decl.ty));
     auto varPos = TranslateLocation(decl);
     if (lval != nullptr) {
-        CreateWrappedStore(varPos, TypeCastOrBoxIfNeeded(rval, *leftType, varPos), lval, currentBlock);
+        CreateAndAppendWrappedStore(rval, *lval, varPos);
     } else {
         auto warnPos = GetDeclLoc(builder.GetChirContext(), decl);
         lval = TypeCastOrBoxIfNeeded(rval, *leftType, varPos);

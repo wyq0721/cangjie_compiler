@@ -226,7 +226,7 @@ InvokeCallContext Translator::GenerateInvokeCallContext(const InstCalleeInfo& in
     if (IsOverflowOpCall(*originalFuncDecl)) {
         funcName = OverflowStrategyPrefix(strategy) + funcName;
     }
-    
+
     auto invokeInfo = InvokeCallContext {
         .caller = &caller,
         .funcCallCtx = FuncCallContext {
@@ -293,13 +293,6 @@ Value* Translator::WrapMemberMethodByLambda(
         } else {
             // Invoke
             CJC_NULLPTR_CHECK(thisObj);
-            auto objExpectedType = instFuncType.instParentCustomTy;
-            if (objExpectedType->IsReferenceType()) {
-                objExpectedType = builder.GetType<RefType>(objExpectedType);
-            }
-            if (thisObj->GetType() != objExpectedType) {
-                thisObj = TypeCastOrBoxIfNeeded(*thisObj, *objExpectedType, INVALID_LOCATION);
-            }
             auto invokeInfo = GenerateInvokeCallContext(instFuncType, *thisObj, funcDecl, args);
             ret = CreateAndAppendExpression<Invoke>(lambdaRetType, invokeInfo, currentBlock)->GetResult();
         }
@@ -330,7 +323,7 @@ Value* Translator::WrapMemberMethodByLambda(
         ret = CreateAndAppendExpression<Apply>(
             instFuncType.instRetTy, callee, funcCallContext, currentBlock)->GetResult();
     }
-    CreateWrappedStore(ret, retVal, currentBlock);
+    CreateAndAppendWrappedStore(*ret, *retVal);
     CreateAndAppendTerminator<Exit>(currentBlock);
     currentBlock = currentBlockBackup;
     return lambda->GetResult();
