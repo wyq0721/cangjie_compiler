@@ -172,9 +172,9 @@ void BlockGroupCopyHelper::GetInstMapFromApply(const Apply& apply, const FuncBas
             ++index;
         }
         // 4. set this type if needed
-        auto outerDef = newBodyOuterFunction ? newBodyOuterFunction->GetParentCustomTypeDef()
-            : apply.GetTopLevelFunc()->GetParentCustomTypeDef();
-        if (customDef && outerDef && outerDef == customDef) {
+        auto outerFunc = newBodyOuterFunction ? newBodyOuterFunction : apply.GetTopLevelFunc();
+        auto outerDef = outerFunc->GetParentCustomTypeDef();
+        if (customDef && outerDef && outerDef == customDef && outerFunc->TestAttr(Attribute::STATIC)) {
             // keep this type if same custom type between callee and caller
             thisType = builder.GetType<ThisType>();
         } else {
