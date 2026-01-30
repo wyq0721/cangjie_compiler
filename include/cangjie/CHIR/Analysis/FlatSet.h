@@ -27,7 +27,7 @@ public:
      * @brief constructor of Flat Set domain.
      * @param isTop flag whether create a top domain, otherwise a bottom one.
      */
-    explicit FlatSet(bool isTop) : flatSetKind(isTop ? FlatSetKind::Top : FlatSetKind::Bottom)
+    explicit FlatSet(bool isTop) : flatSetKind(isTop ? FlatSetKind::Top : FlatSetKind::Bottom), elem(nullptr)
     {
     }
 
@@ -95,6 +95,7 @@ public:
         } else if (flatSetKind == FlatSetKind::Bottom) {
             return "bottom";
         } else {
+            CJC_NULLPTR_CHECK(elem);
             return elem->ToString();
         }
     }
@@ -106,7 +107,7 @@ public:
     }
 
     /// get elem value
-    std::optional<T> GetElem() const
+    std::optional<T*> GetElem() const
     {
         if (flatSetKind == FlatSetKind::Elem) {
             return elem;
@@ -116,7 +117,7 @@ public:
     }
 
     // update elem value to domain
-    void UpdateElem(T ele)
+    void UpdateElem(T* ele)
     {
         flatSetKind = FlatSetKind::Elem;
         elem = ele;
@@ -128,7 +129,7 @@ protected:
     }
 
     FlatSetKind flatSetKind;
-    T elem;
+    T* elem;
 };
 
 } // namespace Cangjie::CHIR
