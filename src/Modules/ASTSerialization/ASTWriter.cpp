@@ -857,7 +857,7 @@ namespace {
 template <typename T> std::optional<Ptr<const Ty>> TryGetPlatformImplementationTy(const Ptr<const Ty>& pType)
 {
     auto ty = StaticCast<T*>(pType);
-    if (ty->decl && ty->decl->platformImplementation) {
+    if (ty->decl && ty == ty->decl->ty && ty->decl->platformImplementation) {
         return ty->decl->platformImplementation->ty;
     }
 
