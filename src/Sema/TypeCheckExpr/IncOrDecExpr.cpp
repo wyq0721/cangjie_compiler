@@ -36,11 +36,6 @@ Ptr<Ty> TypeChecker::TypeCheckerImpl::SynIncOrDecExpr(ASTContext& ctx, IncOrDecE
     auto leftTy = Synthesize(ctx, ae.leftValue.get());
     if (!Ty::IsTyCorrect(leftTy)) {
         ide.ty = TypeManager::GetInvalidTy();
-    } else if (leftTy->IsNothing()) {
-        CJC_NULLPTR_CHECK(ae.rightExpr);
-        ae.rightExpr->ty = TypeManager::GetPrimitiveTy(TypeKind::TYPE_INT64);
-        ae.ty = TypeManager::GetPrimitiveTy(TypeKind::TYPE_UNIT);
-        ide.ty = ae.ty;
     } else if (!leftTy->IsInteger()) {
         DiagMismatchedTypesWithFoundTy(diag, *ae.leftValue, "integer type", leftTy->String(),
             "the base of increment or decrement expressions should be of integer type");
