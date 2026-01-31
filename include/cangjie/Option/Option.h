@@ -850,10 +850,6 @@ public:
     std::vector<std::string> bitcodeFilesName; /** < the name of packageMoudle.bc. */
     std::vector<std::string> symbolsNeedLocalized; /** < Symbols that need to be localized in the compiled binary. */
 
-    bool CompileObjectForExe() const
-    {
-        return (outputMode == GlobalOptions::OutputMode::OBJ && compileTarget == CompileTarget::EXECUTABLE);
-    }
     /**
      * @brief Determine if the output mode is executable.
      *
@@ -862,13 +858,10 @@ public:
      */
     bool CompileExecutable() const
     {
-        return (outputMode == GlobalOptions::OutputMode::EXECUTABLE) || CompileObjectForExe();
+        return outputMode == GlobalOptions::OutputMode::EXECUTABLE ||
+            (outputMode == GlobalOptions::OutputMode::OBJ && compileTarget == CompileTarget::EXECUTABLE);
     }
 
-    bool CompileObjectForLibrary() const
-    {
-        return (outputMode == GlobalOptions::OutputMode::OBJ && compileTarget != CompileTarget::EXECUTABLE);
-    }
     /**
      * @brief Get options backend type.
      *

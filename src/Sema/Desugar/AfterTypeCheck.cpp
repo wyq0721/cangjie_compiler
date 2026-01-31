@@ -434,9 +434,7 @@ void TypeChecker::TypeCheckerImpl::PerformDesugarAfterSema(std::vector<Ptr<AST::
     if (ci->invocation.globalOptions.enIncrementalCompilation) {
         ci->CacheSemaUsage(GetSemanticUsage(typeManager, pkgs));
     }
-    if (!ci->invocation.globalOptions.CompileObjectForLibrary()) {
-        GenerateMainInvoke();
-    }
+    GenerateMainInvoke();
     // Inline checking needs to process source package and imported packages which has source imported decls.
     CheckInlineFunctions(ci->GetPackages());
     // Since the inlined function will affect decls' visibility, analyze linkage after inline decl checking.
@@ -473,6 +471,7 @@ void TypeChecker::TypeCheckerImpl::GenerateMainInvoke()
     // 3. current process is in incremental compiling strategy
     // 4. main function is invalid.
     // 5. when compiling chir we only depend on whether we have main func or not
+    // 6. output-type is obj and compile-target is not exe (in CompileExecutable)
     bool outputCHIR = ci->invocation.globalOptions.outputMode == GlobalOptions::OutputMode::CHIR;
     if ((!ci->invocation.globalOptions.CompileExecutable() && !outputCHIR) ||
         packageHasMain->TestAttr(Attribute::IMPORTED) ||

@@ -22,6 +22,7 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <unordered_map>
+#include <type_traits>
 #ifdef _WIN32
 #include <direct.h>
 #include <io.h>
@@ -80,13 +81,20 @@ std::string GetErrMessage(int error)
         return "";
     }
     return std::string(buf);
-#elif defined(__ohos__) || defined(__APPLE__)
-    if (strerror_r(error, buf, buffSize) != 0) {
-        return "";
-    }
-    return std::string(buf);
 #else
-    return std::string(strerror_r(error, buf, buffSize));
+    auto handleError = [&buf](auto res) -> std::string {
+        using T = decltype(res);
+        // GNU
+        if constexpr (std::is_same_v<T, char*>) {
+            return res ? std::string(res) : "";
+        } else {
+            // POSIX
+            if (res != 0) return "";
+            return std::string(buf);
+        }
+    };
+    // Generic lambda defers semantic checks until instantiation.
+    return handleError(strerror_r(error, buf, buffSize));
 #endif
 }
 
