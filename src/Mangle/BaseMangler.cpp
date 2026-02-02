@@ -80,7 +80,7 @@ std::optional<std::string> GetSpecialFuncName(const FuncDecl& fd)
 inline std::string ToHex(uint64_t val)
 {
     std::stringstream ss;
-    const int width = 2;
+    constexpr int width = 2;
     ss << MANGLE_DOLLAR_PREFIX << std::hex << std::uppercase << std::setfill('0') << std::setw(width) << val;
     return ss.str();
 }
@@ -100,13 +100,13 @@ bool IsMangledToExportForTestBefore(const Decl& decl, const std::vector<Ptr<Node
 
 uint32_t Fnv1aHash(const std::string& str)
 {
-    const uint32_t FNV_OFFSET_BASIS = 2166136261;
-    const uint32_t FNV_PRIME = 16777619;
+    constexpr uint32_t fnvOffsetBasis = 2166136261;
+    constexpr uint32_t fnvPrime = 16777619;
 
-    uint32_t hash = FNV_OFFSET_BASIS;
+    uint32_t hash = fnvOffsetBasis;
     for (char c : str) {
         hash ^= static_cast<uint8_t>(c);
-        hash *= FNV_PRIME;
+        hash *= fnvPrime;
     }
     return hash;
 }
@@ -134,8 +134,8 @@ std::string ToBase62(uint64_t value)
 namespace Cangjie::MangleUtils {
 std::string MangleFilePrivate(const AST::Decl& decl)
 {
-    const size_t cjExtLen = 3;
-    const size_t maxLen = 16;
+    constexpr size_t cjExtLen = 3;
+    constexpr size_t maxLen = 16;
     CJC_NULLPTR_CHECK(decl.curFile);
     const size_t filenameLen = decl.curFile->fileName.size();
     if (filenameLen <= maxLen + cjExtLen) {
@@ -298,7 +298,7 @@ std::string BaseMangler::MangleGenericArgumentsHelper(const Decl& decl, std::vec
     if (decl.ty && !decl.ty->IsFunc()) {
         args = decl.ty->typeArgs;
     } else if (decl.astKind == ASTKind::FUNC_DECL) {
-        auto& fd = static_cast<const FuncDecl&>(decl);
+        auto& fd = StaticCast<const FuncDecl&>(decl);
         if (fd.funcBody->generic) {
             for (auto& arg : fd.funcBody->generic->typeParameters) {
                 args.push_back(arg->ty);
@@ -323,8 +323,7 @@ std::string BaseMangler::MangleGenericArguments(const Decl& decl, std::vector<st
 
 std::string BaseMangler::MangleVarDecl(const AST::Decl& decl, const std::vector<Ptr<AST::Node>>& prefix) const
 {
-    std::string mangleStr = "";
-    mangleStr += MANGLE_CANGJIE_PREFIX + MANGLE_NESTED_PREFIX;
+    std::string mangleStr = MANGLE_CANGJIE_PREFIX + MANGLE_NESTED_PREFIX;
     std::vector<std::string> genericsTypeStack;
     mangleStr += ManglePrefix(decl, prefix, genericsTypeStack, false);
     mangleStr += MangleUtils::MangleName(decl.identifier.Val());
@@ -361,7 +360,7 @@ std::string BaseMangler::MangleVarDecl(const AST::Decl& decl, const std::vector<
             } else {
                 // Local variable need to be counted from the scope of outerNode.
                 std::optional<size_t> index = manglerCtx->GetIndexOfVar(outerNode,
-                    static_cast<const AST::VarDecl*>(&decl));
+                    StaticCast<const AST::VarDecl*>(&decl));
                 CJC_ASSERT(index.has_value() && "index of local variable is not found.");
                 mangleStr += MangleUtils::DecimalToManglingNumber(std::to_string(index.value()));
             }
@@ -493,11 +492,11 @@ std::string BaseMangler::Mangle(const Decl& decl, const std::vector<Ptr<Node>>& 
         case ASTKind::VAR_DECL:
             return Compression::CJMangledCompression(MangleVarDecl(decl, prefix));
         case ASTKind::FUNC_DECL:
-            return Compression::CJMangledCompression(MangleFunctionDecl(static_cast<const FuncDecl&>(decl), prefix,
+            return Compression::CJMangledCompression(MangleFunctionDecl(StaticCast<const FuncDecl&>(decl), prefix,
                 genericsTypeStack, true));
         case ASTKind::VAR_WITH_PATTERN_DECL:
             return Compression::CJMangledCompression(MangleVarWithPatternDecl(
-                static_cast<const AST::VarWithPatternDecl&>(decl), prefix));
+                StaticCast<const AST::VarWithPatternDecl&>(decl), prefix));
         default:
             return Compression::CJMangledCompression(MangleDecl(decl, prefix, genericsTypeStack, true));
     }
@@ -578,8 +577,8 @@ std::string BaseMangler::MangleDecl(const Decl& decl, const std::vector<Ptr<Node
             newMangled += MangleVarWithPatternDecl(*DynamicCast<const AST::VarWithPatternDecl*>(&decl), prefix);
         }
     } else if (decl.astKind == ASTKind::EXTEND_DECL) {
-        newMangled = newMangled + ManglePrefix(decl, prefix, genericsTypeStack, true);
-        newMangled = newMangled + MangleExtendEntity(static_cast<const ExtendDecl&>(decl), genericsTypeStack, true);
+        newMangled += ManglePrefix(decl, prefix, genericsTypeStack, true);
+        newMangled += MangleExtendEntity(StaticCast<const ExtendDecl&>(decl), genericsTypeStack, true);
         newMangled += MangleGenericArguments(decl, genericsTypeStack, true);
     } else {
         newMangled = newMangled + ManglePrefix(decl, prefix, genericsTypeStack, true);
@@ -623,9 +622,9 @@ std::string BaseMangler::MangleDecl(const Decl& decl, const std::vector<Ptr<Node
             }
             newMangled += MangleUtils::MangleName(name);
             if (decl.IsFunc()) {
-                auto& funcDecl = static_cast<const AST::FuncDecl&>(decl);
+                auto& funcDecl = StaticCast<const AST::FuncDecl&>(decl);
                 newMangled +=
-                    IsLocalFunc(funcDecl) ? GetMangledLocalFuncIndex(static_cast<const FuncDecl&>(decl), prefix) : "";
+                    IsLocalFunc(funcDecl) ? GetMangledLocalFuncIndex(StaticCast<const FuncDecl&>(decl)) : "";
             }
         }
         newMangled += MangleGenericArguments(decl, genericsTypeStack, true);
@@ -645,7 +644,7 @@ std::string BaseMangler::MangleExtendEntity(const AST::ExtendDecl& extendDecl,
     mangled += MANGLE_EXTEND_PREFIX + MangleType(*extendDecl.extendedType->ty, genericsTypeStack, declare);
     auto ctx = manglerCtxTable.find(ManglerContext::ReduceUnitTestPackageName(extendDecl.fullPackageName));
     CJC_ASSERT(ctx != manglerCtxTable.end());
-    std::string fileName = extendDecl.curFile.get()->fileName;
+    std::string fileName = extendDecl.curFile->fileName;
     mangled += MANGLE_FILE_ID_PREFIX +
         (IsHashable(fileName) ? HashToBase62(fileName) : (FileNameWithoutExtension(fileName) + MANGLE_DOLLAR_PREFIX));
     auto index = ctx->second->GetIndexOfExtend(extendDecl.curFile, &extendDecl);
@@ -667,7 +666,7 @@ std::string BaseMangler::ManglePrefix(const Node& node, const std::vector<Ptr<No
             case ASTKind::ENUM_DECL:
             case ASTKind::STRUCT_DECL:
             case ASTKind::BUILTIN_DECL: {
-                auto& decl = static_cast<const Decl&>(*curPrefix);
+                auto& decl = StaticCast<const Decl&>(*curPrefix);
                 mangled += MangleUtils::MangleName(decl.identifier);
                 if (auto genericArgs = MangleGenericArgumentsHelper(decl, genericsTypeStack, true);
                     !genericArgs.empty()) {
@@ -677,25 +676,25 @@ std::string BaseMangler::ManglePrefix(const Node& node, const std::vector<Ptr<No
             }
             case ASTKind::VAR_DECL:
                 if (curPrefix->TestAttr(Attribute::GLOBAL)) {
-                    mangled += MangleUtils::MangleName(static_cast<const Decl&>(*curPrefix).identifier);
+                    mangled += MangleUtils::MangleName(StaticCast<const Decl&>(*curPrefix).identifier);
                 }
                 break;
             case ASTKind::FUNC_DECL: {
-                auto& decl = static_cast<const FuncDecl&>(*curPrefix);
+                auto& decl = StaticCast<const FuncDecl&>(*curPrefix);
                 mangled += MangleUtils::MangleName(decl.identifier);
                 if (IsLocalFunc(decl)) {
-                    mangled += GetMangledLocalFuncIndex(decl, prefix);
+                    mangled += GetMangledLocalFuncIndex(decl);
                 }
                 mangled += MangleGenericArgumentsHelper(decl, genericsTypeStack, true) + MANGLE_FUNC_PARAM_TYPE_PREFIX +
                     MangleFuncParams(decl, genericsTypeStack, false) + MANGLE_SUFFIX;
                 break;
             }
             case ASTKind::EXTEND_DECL: {
-                auto& decl = static_cast<const ExtendDecl&>(*curPrefix);
+                auto& decl = StaticCast<const ExtendDecl&>(*curPrefix);
                 bool isInitFunc = node.astKind == ASTKind::FUNC_DECL && node.TestAttr(Attribute::HAS_INITIAL);
                 bool isExtend = (node.astKind == ASTKind::GENERIC_PARAM_DECL) ||
                     (node.TestAttr(Attribute::PRIVATE) && !isInitFunc) ||
-                    (isInitFunc && static_cast<const FuncDecl&>(node).ownerFunc->TestAttr(Attribute::PRIVATE));
+                    (isInitFunc && StaticCast<const FuncDecl&>(node).ownerFunc->TestAttr(Attribute::PRIVATE));
                 if (isExtend) {
                     mangled += MangleExtendEntity(decl, genericsTypeStack, declare);
                 } else {
@@ -704,7 +703,7 @@ std::string BaseMangler::ManglePrefix(const Node& node, const std::vector<Ptr<No
                 break;
             }
             case ASTKind::LAMBDA_EXPR: {
-                auto& lambda = static_cast<const LambdaExpr&>(*curPrefix);
+                auto& lambda = StaticCast<const LambdaExpr&>(*curPrefix);
                 // The outerNode is the outer container of lambda which can be another lambda.
                 // If outerNode is a decl, we use outerNode->fullPackageName to get mangleCtx,
                 // otherwise, we find a prefixDecl from prefix and use prefixDecl->fullPackageName to get mangleCtx.
@@ -737,7 +736,7 @@ std::string BaseMangler::ManglePrefix(const Node& node, const std::vector<Ptr<No
                 std::string mangleStr = "";
                 bool patternContainsVar = false;
                 std::unordered_set<VarDecl*> varDeclCollection;
-                auto& vwpDecl = static_cast<const VarWithPatternDecl&>(*curPrefix);
+                auto& vwpDecl = StaticCast<const VarWithPatternDecl&>(*curPrefix);
                 std::function<void (Pattern*)> patternWalkThrough;
                 std::function<void (Pattern*)> collectAllVarPattern;
                 patternWalkThrough =
@@ -844,7 +843,7 @@ std::string BaseMangler::ManglePrefix(const Node& node, const std::vector<Ptr<No
             }
         }
     } else {
-        mangled = ManglePackage(static_cast<const Decl&>(node)) + mangled;
+        mangled = ManglePackage(StaticCast<const Decl&>(node)) + mangled;
     }
     return mangled;
 }
@@ -885,7 +884,7 @@ Ptr<AST::Node> BaseMangler::FindOuterNodeOfLambda(
     return Ptr<AST::Node>();
 }
 
-std::string BaseMangler::GetMangledLocalFuncIndex(const AST::FuncDecl& decl, const std::vector<Ptr<AST::Node>>& prefix) const
+std::string BaseMangler::GetMangledLocalFuncIndex(const AST::FuncDecl& decl) const
 {
     auto outerNode = GetOuterDecl(decl);
     std::string pkgName = decl.fullPackageName;
@@ -1199,15 +1198,7 @@ bool BaseMangler::IsLocalVariable(const AST::Decl& decl) const
 
 bool BaseMangler::IsLocalFunc(const AST::FuncDecl& funcDecl) const
 {
-    if (funcDecl.TestAttr(AST::Attribute::GLOBAL)) {
-        return false;
-    }
-
-    if (funcDecl.outerDecl && !funcDecl.outerDecl->IsNominalDecl()) {
-        return true;
-    }
-
-    return false;
+    return !funcDecl.TestAttr(AST::Attribute::GLOBAL) && funcDecl.outerDecl && !funcDecl.outerDecl->IsNominalDecl();
 }
 
 std::string BaseMangler::HashToBase62(const std::string& input)
