@@ -40,7 +40,6 @@
 #include "cangjie/AST/RecoverDesugar.h"
 #include "cangjie/AST/Utils.h"
 #include "cangjie/AST/Walker.h"
-#include "cangjie/Mangle/BaseMangler.h"
 #include "cangjie/Sema/Desugar.h"
 #include "cangjie/Sema/TypeManager.h"
 #include "cangjie/Utils/ProfileRecorder.h"

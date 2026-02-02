@@ -13,6 +13,7 @@
 #include "cangjie/AST/Create.h"
 #include "cangjie/AST/Match.h"
 #include "cangjie/Sema/TestManager.h"
+#include "cangjie/Mangle/BaseMangler.h"
 
 namespace Cangjie {
 
