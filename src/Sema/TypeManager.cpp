@@ -1299,10 +1299,20 @@ std::unordered_set<Ptr<Ty>> TypeManager::GetAllExtendInterfaceTyHelper(
         }
         TypeSubst typeMapping;
         for (size_t i = 0; i < typeArgs.size(); ++i) {
-            // may be used in generic instantiation
-            if (auto genSuper = DynamicCast<TyVar*>(extend->extendedType->ty->typeArgs[i])) {
-                typeMapping[genSuper] = typeArgs[i];
-            }
+            /**
+             * typeArgs in extendedType of extend may not be the same as typeVar in the extend declaration,
+             * so we need to generate the type mapping, which may be used in generic instantiation.
+             * E.g.
+             * interface I<T1> {}
+             * interface SA<T2> {}
+             * open class A<T3> {}
+             * extend<T4> A<SA<T4>> <: I<T4> {}
+             * let a: I<Int64> = A<SA<Int64>>()
+             * then typeArgs in extendedType is [SA<T4>], typeVar in the extend declaration is T4,
+             * but typeArgs in the extend used in instantiation of A is [SA<Int64>].
+             * so we need to generate the type mapping: [T4 |-> Int64].
+             */
+            typeMapping.merge(GenerateTypeMappingByTy(extend->extendedType->ty->typeArgs[i], typeArgs[i]));
         }
         for (auto& superInterfaceTy : extend->inheritedTypes) {
             if (!IsInheritableType(superInterfaceTy->ty)) {
