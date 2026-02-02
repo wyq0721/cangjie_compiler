@@ -15,6 +15,19 @@
 
 #include <cassert>
 #include <cstdlib>
+#include <string>
+
+namespace detail {
+inline const char* to_cstring(const char* s)
+{
+    return s;
+}
+
+inline const char* to_cstring(const std::string& s)
+{
+    return s.c_str();
+}
+} // namespace detail
 
 #ifdef CMAKE_ENABLE_ASSERT
 #define CJC_ASSERT(f)                                                                                                  \
@@ -26,14 +39,14 @@
 #define CJC_ASSERT_WITH_MSG(f, msg)                                                                                    \
     {                                                                                                                  \
         if (!(f)) {                                                                                                    \
-            fprintf(stderr, "CJC_ASSERT failed at %s:%d: %s\n", __FILE__, __LINE__, msg);                             \
+            fprintf(stderr, "CJC_ASSERT failed at %s:%d: %s\n", __FILE__, __LINE__, to_cstring(msg));                  \
             abort();                                                                                                   \
         }                                                                                                              \
     }
 #define CJC_ABORT() abort()
 #define CJC_ABORT_WITH_MSG(msg)                                                                                        \
     {                                                                                                                  \
-        fprintf(stderr, "CJC_ABORT at %s:%d: %s\n", __FILE__, __LINE__, msg);                                          \
+        fprintf(stderr, "CJC_ABORT at %s:%d: %s\n", __FILE__, __LINE__, to_cstring(msg));                              \
         abort();                                                                                                       \
     }
 #else
@@ -47,14 +60,14 @@
 #define CJC_ASSERT_WITH_MSG(f, msg)                                                                                    \
     {                                                                                                                  \
         if (!(f)) {                                                                                                    \
-            fprintf(stderr, "CJC_ASSERT failed at %s:%d: %s\n", __FILE__, __LINE__, msg);                             \
+            fprintf(stderr, "CJC_ASSERT failed at %s:%d: %s\n", __FILE__, __LINE__, to_cstring(msg));                  \
             assert(f);                                                                                                 \
         }                                                                                                              \
     }
 #define CJC_ABORT() abort()
 #define CJC_ABORT_WITH_MSG(msg)                                                                                        \
     {                                                                                                                  \
-        fprintf(stderr, "CJC_ABORT at %s:%d: %s\n", __FILE__, __LINE__, msg);                                          \
+        fprintf(stderr, "CJC_ABORT at %s:%d: %s\n", __FILE__, __LINE__, to_cstring(msg));                              \
         abort();                                                                                                       \
     }
 #endif
