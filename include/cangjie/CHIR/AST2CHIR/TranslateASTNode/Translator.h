@@ -711,7 +711,7 @@ private:
         Value& lhs, Value& rhs, Value& index, Type& elementType, const DebugLocation& loc);
 
     CHIR::Type* GetExactParentType(Type& fuzzyParentType, const AST::FuncDecl& resolvedFunction, FuncType& funcType,
-        std::vector<Type*>& funcInstTypeArgs, bool checkAbstractMethod, bool checkResult = true);
+        std::vector<Type*>& funcInstTypeArgs, bool checkAbstractMethod);
 
     // translate var decl
     Ptr<Value> TranslateLeftValueOfVarDecl(const AST::VarDecl& decl, bool rValueIsEmpty, bool isLocalVar);
@@ -955,7 +955,7 @@ private:
         const OverflowStrategy strategy = OverflowStrategy::THROWING);
     InstCalleeInfo GetInstCalleeInfoFromVarInit(const AST::RefExpr& expr);
     std::pair<Type*, FuncCallType> GetExactParentTypeAndFuncType(
-        const AST::NameReferenceExpr& expr, Type& thisType, const AST::FuncDecl& funcDecl, bool isVirtualFuncCall);
+        const AST::NameReferenceExpr& expr, Type& thisType, const AST::FuncDecl& funcDecl, bool& isVirtualFuncCall);
     InstCalleeInfo GetInstCalleeInfoFromRefExpr(const AST::RefExpr& expr);
     InstCalleeInfo GetInstCalleeInfoFromMemberAccess(const AST::MemberAccess& expr);
 

@@ -342,7 +342,7 @@ std::vector<ClassType*> CustomType::GetSuperTypesRecusively(CHIRBuilder& builder
     std::set<std::pair<const Type*, const Type*>>* visited)
 {
     std::vector<ClassType*> inheritanceList;
-    for (auto interface : GetImplementedInterfaceTys(&builder)) {
+    for (auto interface : GetImplementedInterfaceTys(&builder, visited)) {
         GetAllInstantiatedParentType(*interface, builder, inheritanceList, visited);
     }
     if (auto classTy = DynamicCast<ClassType*>(this)) {
