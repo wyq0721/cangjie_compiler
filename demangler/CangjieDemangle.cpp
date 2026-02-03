@@ -67,25 +67,4 @@ DemangleData DemangleType(const std::string& mangled, const std::string& scopeRe
 }
 
 DemangleData DemangleType(const std::string& mangled) { return DemangleType(mangled, "::"); }
-
-#ifdef __OHOS__
-char* CJ_MRT_Demangle(const char* functionName)
-{
-    DemangleData demangleData = Demangle(functionName);
-    std::string pkgName = demangleData.GetPkgName();
-    std::string demangledFunctionName =
-        pkgName + std::string(pkgName.empty() ? "" : ".") + demangleData.GetFullName();
-    int32_t len = strlen(demangledFunctionName.c_str());
-    // demangleName should be freed by caller.
-    char* demangleName = reinterpret_cast<char*>(malloc(len + 1));
-    if (demangleName == nullptr) {
-        return nullptr;
-    }
-    for (int i = 0; i < len; ++i) {
-        demangleName[i] = demangledFunctionName[i];
-    }
-    demangleName[len] = '\0';
-    return demangleName;
-}
-#endif
 } // namespace Cangjie
