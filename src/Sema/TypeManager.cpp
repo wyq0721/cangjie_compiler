@@ -2453,6 +2453,10 @@ Ptr<Ty> TypeManager::ObtainsAliasTypeOfRefType(Ptr<const RefType> rt)
         funcType->isC = true;
         return ObtainsAliasType(funcType);
     }
+    // 'This' type cannot use alias types. And typeArguments always be empty for 'This' type.
+    if (auto thisTy = DynamicCast<ClassThisTy>(rt->ty)) {
+        return rt->ty;
+    }
     std::vector<Ptr<AST::Ty>> typeArgs;
     for (auto& typeArg : rt->typeArguments) {
         typeArgs.emplace_back(ObtainsAliasType(typeArg.get()));
