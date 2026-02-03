@@ -314,7 +314,7 @@ void Translator::TranslateSubExprToLoc(const AST::Node& node, Value* location, c
         return;
     }
     value = TypeCastOrBoxIfNeeded(*value, *targetTy, debugLoc);
-    CreateWrappedStore(debugLoc, value, location, GetCurrentBlock());
+    CreateAndAppendWrappedStore(*value, *location, debugLoc);
 }
 
 Ptr<Value> Translator::TranslateSubExprAsValue(const AST::Node& node)

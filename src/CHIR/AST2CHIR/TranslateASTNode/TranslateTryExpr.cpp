@@ -47,8 +47,7 @@ Ptr<Value> Translator::Visit(const AST::TryExpr& tryExpr)
             auto pkgInit = builder.GetCurPackage()->GetPackageInitFunc();
             CJC_NULLPTR_CHECK(pkgInit);
             // ApplyWithException will create and update current block.
-            GenerateFuncCall(*pkgInit, StaticCast<FuncType*>(pkgInit->GetType()),
-                std::vector<Type*>{}, nullptr, std::vector<Value*>{}, INVALID_LOCATION);
+            CreateAndAppendGVInitFuncCall(*pkgInit);
         }
         auto baseBlock = currentBlock;
         auto tryVal = TranslateExprArg(*tryExpr.tryBlock);
@@ -65,7 +64,7 @@ Ptr<Value> Translator::Visit(const AST::TryExpr& tryExpr)
                 valLoc = TranslateLocation(*tryExpr.tryBlock);
             }
             if (retVal) {
-                CreateWrappedStore(valLoc, GetDerefedValue(tryVal, valLoc), retVal, currentBlock);
+                CreateAndAppendWrappedStore(*GetDerefedValue(tryVal, valLoc), *retVal, valLoc);
             }
         }
         CreateAndAppendTerminator<GoTo>(loc, endBlock, currentBlock)->Set<SkipCheck>(SkipKind::SKIP_DCE_WARNING);

@@ -240,6 +240,9 @@ void ToCHIR::DumpCHIRToFile(const std::string& suffix, bool needCheckFlag)
         FileUtil::CreateDirs(fullPath);
     }
     CHIRPrinter::PrintPackage(*chirPkg, fullPath);
+    if (suffix == "Broken_CHIR") {
+        printf("broken chir dump to file: %s\n", fullPath.c_str());
+    }
 }
 
 void ToCHIR::DoClosureConversion()

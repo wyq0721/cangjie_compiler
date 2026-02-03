@@ -365,11 +365,6 @@ protected:
     {
         return tr.GetBlockByAST(block);
     }
-    template <class... Args>
-    void CreateWrappedStore(Args&&... args)
-    {
-        tr.CreateWrappedStore(std::forward<Args>(args)...);
-    }
     ///@}
 
     Translator& tr;

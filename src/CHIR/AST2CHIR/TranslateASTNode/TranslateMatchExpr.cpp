@@ -487,8 +487,7 @@ void Translator::HandleVarPattern(
             CreateAndAppendExpression<Debug>(
                 loc, builder.GetUnitTy(), alloca, varPattern.varDecl->identifier, trueBlock);
         }
-        CreateAndAppendExpression<Store>(
-            loc, builder.GetUnitTy(), TypeCastOrBoxIfNeeded(*val, *varType, loc, false), alloca, trueBlock);
+        CreateAndAppendWrappedStore(*val, *alloca, *trueBlock, loc);
         val = CreateAndAppendExpression<Load>(varType, alloca, trueBlock)->GetResult();
     } else {
         val = TypeCastOrBoxIfNeeded(*val, *varType, loc);

@@ -532,7 +532,7 @@ bool CHIRChecker::TypeIsExpected(const Type& srcType, const Type& dstType)
         return true;
     }
     // maybe struct S <: I, S is sub type of I, but we can't send S to I directly
-    if (srcType.IsStruct() && dstType.IsClass()) {
+    if (srcType.IsValueType() && dstType.StripAllRefs()->IsClass()) {
         return false;
     }
     // we can set a sub type to a parent type, it's safe in llvm ir,
@@ -3641,11 +3641,12 @@ void CHIRChecker::CheckInstanceOf(const InstanceOf& expr, const Func& topLevelFu
     // 2. target type must be valid
     CheckTypeIsValid(*expr.GetType(), "target", expr, topLevelFunc);
 
-    // 3. source must be an object
+    // 3. source type and target type can't be both primitive type, otherwise it should be calculated in compile time.
     auto objectType = expr.GetObject()->GetType()->StripAllRefs();
-    if (!objectType->IsCustomType() && !objectType->IsGenericRelated() && !objectType->IsThis() &&
-        !objectType->IsCPointer()) {
-        TypeCheckError(expr, *expr.GetObject(), "custom type, generic type, this or CPointer", topLevelFunc);
+    if (objectType->IsPrimitive() && expr.GetType()->StripAllRefs()->IsPrimitive()) {
+        auto errMsg = "source type is " + objectType->ToString() + ", target type is " + expr.GetType()->ToString() +
+            ", they are both exact type, doesn't need to use `InstanceOf` to check in runtime.";
+        ErrorInFunc(topLevelFunc, errMsg);
     }
 }
 void CHIRChecker::CheckTypeCast([[maybe_unused]] const TypeCast& expr, [[maybe_unused]] const Func& topLevelFunc)

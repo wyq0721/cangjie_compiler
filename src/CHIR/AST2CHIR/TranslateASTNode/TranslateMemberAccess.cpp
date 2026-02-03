@@ -16,34 +16,6 @@ using namespace Cangjie;
 using namespace AST;
 
 namespace {
-/*
-    Use UpperBound to replace Generic type,e.g. if T <: C1
-    1、if baseType is T then return C1&
-    2、if baseType is T& then return C1&
-    3、if baseType is C2<T> then return C2<C1&>
- */
-Ptr<CHIR::Type> CreateTypeWithUpperBounds(CHIR::Type& baseType, CHIR::CHIRBuilder& builder)
-{
-    std::vector<CHIR::Type*> newArgs;
-    auto srcType = &baseType;
-    if (srcType->IsRef() && StaticCast<CHIR::RefType*>(srcType)->GetBaseType()->IsGeneric()) {
-        srcType = StaticCast<CHIR::RefType*>(srcType)->GetBaseType();
-    }
-    if (srcType->IsGeneric()) {
-        for (auto type : StaticCast<GenericType*>(srcType)->GetUpperBounds()) {
-            if (type->IsRef() && StaticCast<CHIR::RefType*>(type)->GetBaseType()->IsClass()) {
-                return type;
-            }
-        }
-    } else {
-        for (auto type : srcType->GetTypeArgs()) {
-            newArgs.emplace_back(CreateTypeWithUpperBounds(*type, builder));
-        }
-        return CreateNewTypeWithArgs(*srcType, newArgs, builder);
-    }
-    return &baseType;
-}
-
 bool InheritedChainHasCommon(const CustomTypeDef& def)
 {
     if (def.TestAttr(CHIR::Attribute::COMMON)) {
@@ -145,52 +117,6 @@ bool Translator::IsVirtualFuncCall(
                              // decide which function is expected according to the information in current package
     */
     return FuncDeclIsOpen(funcDecl) && funcDecl.outerDecl->IsOpen() && InheritedChainHasCommon(obj);
-}
-
-Ptr<Value> Translator::GetBaseFromMemberAccess(const AST::Expr& base)
-{
-    if (AST::IsThisOrSuper(base)) {
-        // This call or super call don't need add `Load`;
-        // struct A {
-        //   let x:Int64
-        //     func foo() {this.x}
-        // }
-        auto thisVar = GetImplicitThisParam();
-        return thisVar;
-    }
-    auto curObj = TranslateExprArg(base);
-    auto loc = TranslateLocation(base);
-    if (base.ty->IsClassLike() || curObj->GetType()->IsRawArray()) {
-        // class A {func foo(){return 0}
-        // var a = A()
-        // a.b.c.d           // a is A&& need add `Load`
-        // let b = A()
-        // b.c.d            // b is A& don't need add `Load`
-        // note: generic type will cast to class upper bound, do load if need
-        auto objType = curObj->GetType();
-        CJC_ASSERT(objType->IsRef());
-        if (objType->IsRef()) {
-            // objType is A&& or A&
-            auto objBaseType = StaticCast<RefType*>(objType)->GetBaseType();
-            if (objBaseType->IsRef()) {
-                // for example: objBaseType is A&
-                curObj = CreateAndAppendExpression<Load>(loc, objBaseType, curObj, currentBlock)->GetResult();
-            }
-        }
-    } else if (curObj->GetType()->IsRef() && StaticCast<RefType*>(curObj->GetType())->GetBaseType()->IsGeneric()) {
-        // a generic type variable must be non reference as a parameter in GetElementRef/StoreElementRef
-        // Example:
-        // Var a: T = xxx     // T is a generic type
-        // a.b                // a is T&， need add Load expression,
-        auto objBaseType = StaticCast<RefType*>(curObj->GetType())->GetBaseType();
-        curObj = CreateAndAppendExpression<Load>(loc, objBaseType, curObj, currentBlock)->GetResult();
-    }
-    if (curObj->GetType()->IsGeneric()) {
-        // type cast to upperbounds, if base is a generic
-        auto newType = CreateTypeWithUpperBounds(*curObj->GetType(), builder);
-        curObj = TypeCastOrBoxIfNeeded(*curObj, *newType, loc);
-    }
-    return curObj;
 }
 
 Ptr<CHIR::Type> Translator::GetTypeOfInvokeStatic(const AST::Decl& funcDecl)
@@ -341,7 +267,7 @@ Translator::InstCalleeInfo Translator::GetInstCalleeInfoFromMemberAccess(const A
         !funcDecl->TestAttr(AST::Attribute::STATIC)) {
         isVirtualFuncCall = IsVirtualFuncCall(*customType->GetCustomTypeDef(), *funcDecl, isSuper);
     } else if (auto genericType = DynamicCast<GenericType*>(thisDerefTy)) {
-    isVirtualFuncCall = true;
+        isVirtualFuncCall = true;
         // maybe T <: open class A & non-open class B, then it still not be virtual func call
         for (auto ty : genericType->GetUpperBounds()) {
             auto customDef = StaticCast<ClassType*>(ty->StripAllRefs())->GetClassDef();
@@ -400,31 +326,26 @@ Value* Translator::GetWrapperFuncFromMemberAccess(Type& thisType, const std::str
 
 Ptr<Value> Translator::TranslateStaticTargetOrPackageMemberAccess(const AST::MemberAccess& member)
 {
-    // only classA.foo need a wrapper, pkgA.foo doesn't
+    // 1. classA.foo, pkgA.classB.foo
     if (member.target->astKind == AST::ASTKind::FUNC_DECL && member.target->outerDecl != nullptr) {
         auto instFuncType = GetInstCalleeInfoFromMemberAccess(member);
         return WrapMemberMethodByLambda(*StaticCast<FuncDecl*>(member.target), instFuncType, nullptr);
     }
     auto targetNode = GetSymbolTable(*member.target);
-    auto targetTy = TranslateType(*member.target->ty);
-    auto resTy = TranslateType(*member.ty);
-    auto loc = TranslateLocation(member);
-    if (auto refExpr = DynamicCast<AST::RefExpr*>(&*member.baseExpr)) {
-        // this is a package member access, return the target directly
-        if (refExpr->ref.target->ty->IsInvalid()) {
-            // global var, load and typecast if needed
-            if (Is<AST::VarDecl>(member.target)) {
-                auto targetVal = CreateAndAppendExpression<Load>(loc, targetTy, targetNode, currentBlock)->GetResult();
-                auto castedTargetVal = TypeCastOrBoxIfNeeded(*targetVal, *resTy, loc);
-                return castedTargetVal;
-            }
-            return targetNode;
-        }
+    if (member.target->astKind == AST::ASTKind::VAR_DECL) {
+        // 2. classA.x, pkgA.x, pkgA.classB.x
+        auto targetTy = TranslateType(*member.target->ty);
+        auto resTy = TranslateType(*member.ty);
+        auto loc = TranslateLocation(member);
+        auto targetVal = CreateAndAppendExpression<Load>(loc, targetTy, targetNode, currentBlock)->GetResult();
+        return TypeCastOrBoxIfNeeded(*targetVal, *resTy, loc);
+    } else if (member.target->astKind == AST::ASTKind::FUNC_DECL) {
+        // 3. pkgA.foo
+        return targetNode;
+    } else {
+        CJC_ABORT();
     }
-
-    auto targetVal = CreateAndAppendExpression<Load>(loc, targetTy, targetNode, currentBlock)->GetResult();
-    auto castedTargetVal = TypeCastOrBoxIfNeeded(*targetVal, *resTy, loc);
-    return castedTargetVal;
+    return nullptr;
 }
 
 Ptr<Value> Translator::TranslateFuncMemberAccess(const AST::MemberAccess& member)

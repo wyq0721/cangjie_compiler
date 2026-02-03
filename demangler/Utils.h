@@ -9,6 +9,7 @@
 #define CANGJIE_DEMANGLER_UTILS_H
 
 #include <unordered_map>
+#include <cstdint>
 #include <cstring>
 #include <string>
 
