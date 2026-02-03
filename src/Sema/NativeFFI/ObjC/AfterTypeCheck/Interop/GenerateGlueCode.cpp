@@ -12,7 +12,6 @@
 
 #include "NativeFFI/ObjC/ObjCCodeGenerator/ObjCGenerator.h"
 #include "Handlers.h"
-#include "cangjie/Mangle/BaseMangler.h"
 
 using namespace Cangjie::AST;
 using namespace Cangjie::Interop::ObjC;

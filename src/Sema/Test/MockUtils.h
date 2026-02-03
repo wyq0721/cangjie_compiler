@@ -15,7 +15,6 @@
 
 #include "cangjie/Mangle/BaseMangler.h"
 #include "cangjie/Sema/TypeManager.h"
-#include "cangjie/Mangle/BaseMangler.h"
 #include "cangjie/Modules/ImportManager.h"
 #include "cangjie/Sema/GenericInstantiationManager.h"
 

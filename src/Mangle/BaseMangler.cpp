@@ -11,6 +11,9 @@
  */
 
 #include "cangjie/Mangle/BaseMangler.h"
+
+#include <sstream>
+
 #include "Compression.h"
 #include "cangjie/AST/Match.h"
 #include "cangjie/AST/Types.h"
@@ -18,8 +21,6 @@
 #include "cangjie/AST/Walker.h"
 #include "cangjie/Basic/Match.h"
 #include "cangjie/Utils/FileUtil.h"
-
-#include <sstream>
 
 using namespace Cangjie;
 using namespace AST;

@@ -12,6 +12,7 @@
 #include "cangjie/Parse/ASTHasher.h"
 #include "cangjie/AST/ASTCasting.h"
 #include "cangjie/Utils/Utils.h"
+#include "cangjie/Mangle/BaseMangler.h"
 #include "cangjie/Mangle/MangleUtils.h"
 
 using namespace Cangjie;

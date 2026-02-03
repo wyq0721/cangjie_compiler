@@ -16,7 +16,6 @@
 
 #include "cangjie/Sema/TypeManager.h"
 #include "cangjie/Modules/ImportManager.h"
-#include "cangjie/Mangle/BaseMangler.h"
 
 #include "MockUtils.h"
 

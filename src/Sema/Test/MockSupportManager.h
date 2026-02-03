@@ -13,7 +13,6 @@
 #ifndef CANGJIE_SEMA_MOCK_SUPPORT_MANAGER_H
 #define CANGJIE_SEMA_MOCK_SUPPORT_MANAGER_H
 
-#include "cangjie/Mangle/BaseMangler.h"
 #include "cangjie/Modules/ImportManager.h"
 #include "cangjie/Sema/TypeManager.h"
 
