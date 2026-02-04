@@ -26,17 +26,22 @@ Symbol* ScopeManagerApi::GetScopeGate(const ASTContext& ctx, const std::string& 
     return nullptr;
 }
 
-std::string ScopeManagerApi::GetScopeGateName(const std::string& scopeName)
+std::string ScopeManagerApi::GetScopeGateName(const std::string& scopeNameOrGateName)
 {
     std::string currentScope;
-    auto found = scopeName.find_last_of(childScopeNameSplit);
+    auto found = scopeNameOrGateName.find_last_of(childScopeNameSplit);
     if (found != std::string::npos) {
-        currentScope = scopeName.substr(0, found);
+        // e.g. a0a_a -> a0a (intermediate step: remove '_' suffix)
+        //      Then a0a -> a_a (final: convert to scope gate name)
+        //      If input is a scope gate name, returns parent scope gate name.
+        //      If input is a scope name, returns current scope gate name.
+        currentScope = scopeNameOrGateName.substr(0, found);
     } else {
-        currentScope = scopeName;
+        currentScope = scopeNameOrGateName;
     }
     found = currentScope.find_last_of(scopeNameSplit);
     if (found != std::string::npos) {
+        // e.g. a0a -> a_a
         currentScope.replace(found, 1, 1, childScopeNameSplit);
     } else {
         // Toplevel don't have root name.

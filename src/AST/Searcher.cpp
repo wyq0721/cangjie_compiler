@@ -51,13 +51,19 @@ std::string NormalizeQuery(const Query& query, const Order& order)
 void Trie::Insert(const std::string& value)
 {
     TrieNode* n = root.get();
+    std::string prefix;  // Accumulate prefix incrementally to avoid substr calls
+    prefix.reserve(value.size());
     for (unsigned i = 0; i < value.size(); ++i) {
         if (n->next.find(value[i]) == n->next.end()) {
             n->next.emplace(value[i], std::make_unique<TrieNode>(value[i]));
         }
         n = n->next[value[i]].get();
-        n->prefix = value.substr(0, i + 1);
-        n->suffixes.insert(value.substr(i + 1));
+        prefix += value[i];  // Build prefix incrementally
+        n->prefix = prefix;
+        // Only compute suffix if it's non-empty to avoid unnecessary string creation
+        if (i + 1 < value.size()) {
+            n->suffixes.insert(std::string(value.data() + i + 1, value.size() - i - 1));
+        }
     }
     n->value = value;
 }
@@ -65,6 +71,8 @@ void Trie::Insert(const std::string& value)
 void Trie::Insert(const std::string& value, Symbol& id)
 {
     TrieNode* n = root.get();
+    std::string prefix;  // Accumulate prefix incrementally to avoid substr calls
+    prefix.reserve(value.size());
     for (unsigned i = 0; i < value.size(); ++i) {
         if (n->next.find(value[i]) == n->next.end()) {
             n->next.emplace(value[i], std::make_unique<TrieNode>(value[i]));
@@ -74,8 +82,12 @@ void Trie::Insert(const std::string& value, Symbol& id)
         next->parent = n;
         next->ids.insert(&id);
         n = next;
-        n->prefix = value.substr(0, i + 1);
-        n->suffixes.insert(value.substr(i + 1));
+        prefix += value[i];  // Build prefix incrementally
+        n->prefix = prefix;
+        // Only compute suffix if it's non-empty to avoid unnecessary string creation
+        if (i + 1 < value.size()) {
+            n->suffixes.insert(std::string(value.data() + i + 1, value.size() - i - 1));
+        }
     }
     n->value = value;
 }

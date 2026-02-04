@@ -16,6 +16,7 @@
 #include <sstream>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "ModulesDiag.h"
@@ -1059,18 +1060,44 @@ std::vector<Ptr<Decl>> ImportManager::GetImportedDeclsByName(const File& file, c
 
 std::vector<std::pair<std::string, std::vector<Ptr<Decl>>>> ImportManager::GetImportedDecls(const File& file) const
 {
-    std::vector<std::pair<std::string, std::vector<Ptr<Decl>>>> res;
-    std::transform(importedDeclsMap.cbegin(), importedDeclsMap.cend(), std::back_inserter(res), [](auto& pair) {
-        std::vector<Ptr<Decl>> decls = Utils::SetToVec<Ptr<Decl>>(pair.second);
-        return std::make_pair(pair.first, decls);
-    });
+    // pre-allocate space for result
+    size_t totalSize = importedDeclsMap.size();
     auto iter = fileImportedDeclsMap.find(file.fileHash);
     if (iter != fileImportedDeclsMap.cend()) {
-        std::transform(iter->second.cbegin(), iter->second.cend(), std::back_inserter(res), [](auto& pair) {
-            std::vector<Ptr<Decl>> decls = Utils::SetToVec<Ptr<Decl>>(pair.second);
-            return std::make_pair(pair.first, decls);
-        });
+        totalSize += iter->second.size();
     }
+    std::vector<std::pair<std::string, std::vector<Ptr<Decl>>>> res;
+    res.reserve(totalSize);
+    // construct result directly, avoid temporary variables
+    for (const auto& [name, declSet] : importedDeclsMap) {
+        std::vector<Ptr<Decl>> decls(declSet.cbegin(), declSet.cend());
+        res.emplace_back(name, std::move(decls));
+    }
+    
+    if (iter != fileImportedDeclsMap.cend()) {
+        for (const auto& [name, declSet] : iter->second) {
+            std::vector<Ptr<Decl>> decls(declSet.cbegin(), declSet.cend());
+            res.emplace_back(name, std::move(decls));
+        }
+    }
+    return res;
+}
+
+std::vector<Ptr<Decl>> ImportManager::GetAllImportedDecls(const File& file) const
+{
+    OrderedDeclSet declSet;
+    for (const auto& [_, decls] : importedDeclsMap) {
+        declSet.insert(decls.cbegin(), decls.cend());
+    }
+    auto iter = fileImportedDeclsMap.find(file.fileHash);
+    if (iter != fileImportedDeclsMap.cend()) {
+        for (const auto& [_, decls] : iter->second) {
+            declSet.insert(decls.cbegin(), decls.cend());
+        }
+    }
+    std::vector<Ptr<Decl>> res;
+    res.reserve(declSet.size());
+    res.assign(declSet.cbegin(), declSet.cend());
     return res;
 }
 

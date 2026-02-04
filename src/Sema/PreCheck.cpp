@@ -15,6 +15,9 @@
 #include "TypeCheckUtil.h"
 #include "TypeCheckerImpl.h"
 
+#include <unordered_map>
+#include <unordered_set>
+
 #include "cangjie/AST/ASTContext.h"
 #include "cangjie/AST/Clone.h"
 #include "cangjie/AST/Match.h"
@@ -895,7 +898,7 @@ void TypeChecker::TypeCheckerImpl::ResolveNames(ASTContext& ctx)
         return VisitAction::WALK_CHILDREN;
     };
     std::vector<Symbol*> syms = GetToplevelDecls(ctx);
-    for (auto& sym : syms) {
+    for (auto sym : syms) {
         CJC_NULLPTR_CHECK(sym);
         Walker(sym->node, id, resolveSingleType).Walk();
     }
@@ -1828,6 +1831,17 @@ void TypeChecker::TypeCheckerImpl::PreCheckInvalidInherit(const ASTContext& ctx,
 }
 
 namespace {
+inline constexpr bool IsTypeDeclKind(ASTKind kind) noexcept
+{
+    return kind == ASTKind::CLASS_DECL || kind == ASTKind::STRUCT_DECL || kind == ASTKind::ENUM_DECL ||
+        kind == ASTKind::INTERFACE_DECL || kind == ASTKind::EXTEND_DECL || kind == ASTKind::BUILTIN_DECL;
+}
+
+inline constexpr bool IsMemberDeclKind(ASTKind kind) noexcept
+{
+    return kind == ASTKind::FUNC_DECL || kind == ASTKind::PROP_DECL || kind == ASTKind::VAR_DECL;
+}
+
 Ptr<Decl> GetTypeDecl(TypeManager& tyMgr, Ptr<Decl> d)
 {
     if (auto ed = DynamicCast<ExtendDecl*>(d)) {
@@ -1861,13 +1875,11 @@ MemSig MemDecl2Sig(Decl& d)
 
 void TypeChecker::TypeCheckerImpl::CollectDeclsWithMember(Ptr<Package> pkg, ASTContext& ctx)
 {
-    const std::set<ASTKind> TYPE_DECLS{ASTKind::CLASS_DECL, ASTKind::STRUCT_DECL, ASTKind::ENUM_DECL,
-        ASTKind::INTERFACE_DECL, ASTKind::EXTEND_DECL, ASTKind::BUILTIN_DECL};
-    const std::set<ASTKind> MEMBER_DECLS{ASTKind::FUNC_DECL, ASTKind::PROP_DECL, ASTKind::VAR_DECL};
-    std::map<Ptr<Decl>, std::unordered_set<MemSig, MemSigHash>> decl2Mems;
-    std::set<Ptr<Decl>> allTops; // includes extendDecl needed for finding super types
-    auto mapDecl = [this, &ctx, &decl2Mems, &MEMBER_DECLS](Ptr<Decl> d) {
-        if (MEMBER_DECLS.count(d->astKind) == 0) {
+    std::unordered_map<Ptr<Decl>, std::unordered_set<MemSig, MemSigHash>> decl2Mems;
+    std::unordered_set<Ptr<Decl>> allTops; // includes extendDecl needed for finding super types
+    std::unordered_set<Ptr<Decl>> processedDecls;
+    auto mapDecl = [this, &ctx, &decl2Mems](Ptr<Decl> d) {
+        if (!IsMemberDeclKind(d->astKind)) {
             return;
         }
         auto sig = MemDecl2Sig(*d);
@@ -1880,8 +1892,11 @@ void TypeChecker::TypeCheckerImpl::CollectDeclsWithMember(Ptr<Package> pkg, ASTC
             decl2Mems[top].insert(sig);
         }
     };
-    auto collectDecl = [&allTops, &TYPE_DECLS, &mapDecl](Ptr<Decl> top) {
-        if (TYPE_DECLS.count(top->astKind) > 0) {
+    auto collectDecl = [&allTops, &mapDecl, &processedDecls](Ptr<Decl> top) {
+        if (!processedDecls.insert(top).second) {
+            return;
+        }
+        if (IsTypeDeclKind(top->astKind)) {
             allTops.emplace(top);
         }
         for (auto& d : top->GetMemberDecls()) {
@@ -1890,28 +1905,27 @@ void TypeChecker::TypeCheckerImpl::CollectDeclsWithMember(Ptr<Package> pkg, ASTC
     };
     // collect this package
     std::vector<Symbol*> syms = GetAllDecls(ctx);
-    for (auto& sym : syms) {
+    for (auto sym : syms) {
         collectDecl(StaticCast<Decl*>(sym->node));
     }
     // collect imported
     for (auto& file : pkg->files) {
-        auto imported = importManager.GetImportedDecls(*file);
-        for (auto& [_, tops] : imported) {
-            for (auto& top : tops) {
-                collectDecl(top);
-            }
+        std::vector<Ptr<Decl>> importedDecls = importManager.GetAllImportedDecls(*file);
+        for (auto decl : importedDecls) {
+            collectDecl(decl);
         }
     }
     // collect builtin extends, which somehow is not included in imported
     for (auto& [_, tops] : typeManager.builtinTyToExtendMap) {
-        for (auto& top : tops) {
+        for (auto top : tops) {
             collectDecl(top);
         }
     }
+
     // Members are not propagated to inherited types here, since it may take
     // too much time & memory; only remember accesible subtypes here.
     // Inherited members are computed on-demand.
-    for (auto& top : allTops) {
+    for (auto top : allTops) {
         auto realTop = GetTypeDecl(typeManager, top);
         if (auto inheritable = DynamicCast<InheritableDecl*>(top)) {
             for (auto sup : inheritable->GetAllSuperDecls()) {
