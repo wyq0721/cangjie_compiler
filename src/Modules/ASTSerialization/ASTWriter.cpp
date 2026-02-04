@@ -198,7 +198,14 @@ void CollectBodyToQueue(const Decl& decl, std::queue<Ptr<Decl>>& queue)
 
 bool IsGenericInCommonSerialization(bool serializingCommon, const Decl& decl)
 {
-    return serializingCommon && decl.outerDecl && decl.outerDecl->TestAttr(Attribute::GENERIC);
+    bool shouldSerialize = serializingCommon && decl.outerDecl && decl.outerDecl->TestAttr(Attribute::GENERIC);
+    if (auto fd = DynamicCast<const AST::FuncDecl*>(&decl); shouldSerialize && fd) {
+        // `static init` never gets deserialized (LoadDecl) when compiling platform part
+        // so, this declaration is skipped to avoid other decls becoming dependent to never loaded declaration.
+        shouldSerialize = !(fd->TestAttr(AST::Attribute::STATIC, AST::Attribute::CONSTRUCTOR) &&
+            fd->identifier == STATIC_INIT_FUNC);
+    }
+    return shouldSerialize;
 }
 
 void CollectFullExportParamDecl(
