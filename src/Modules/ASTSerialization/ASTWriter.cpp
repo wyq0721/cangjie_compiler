@@ -885,7 +885,7 @@ template <typename T>
 std::optional<Ptr<const Ty>> TryGetSpecificImplementationTy(const Ptr<const Ty>& pType)
 {
     auto ty = StaticCast<T*>(pType);
-    if (ty->decl && ty->decl->specificImplementation) {
+    if (ty->decl && ty == ty->decl->ty && ty->decl->specificImplementation) {
         return ty->decl->specificImplementation->ty;
     }
 
