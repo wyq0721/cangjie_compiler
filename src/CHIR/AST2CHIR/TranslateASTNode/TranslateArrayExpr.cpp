@@ -157,7 +157,7 @@ Ptr<Value> Translator::InitArrayByItem(const AST::ArrayExpr& array)
 
 CHIR::Type* Translator::GetExactParentType(
     Type& fuzzyParentType, const AST::FuncDecl& resolvedFunction, FuncType& funcType,
-    std::vector<Type*>& funcInstTypeArgs, bool checkAbstractMethod, bool checkResult)
+    std::vector<Type*>& funcInstTypeArgs, bool checkAbstractMethod)
 {
     if (fuzzyParentType.IsNothing()) {
         return &fuzzyParentType;
@@ -183,7 +183,7 @@ CHIR::Type* Translator::GetExactParentType(
         for (auto upperBound : upperBounds) {
             ClassType* upperClassType = StaticCast<ClassType*>(StaticCast<RefType*>(upperBound)->GetBaseType());
             result = GetExactParentType(
-                *upperClassType, resolvedFunction, funcType, funcInstTypeArgs, checkAbstractMethod, false);
+                *upperClassType, resolvedFunction, funcType, funcInstTypeArgs, checkAbstractMethod);
             if (result != nullptr) {
                 break;
             }
@@ -223,7 +223,6 @@ CHIR::Type* Translator::GetExactParentType(
             }
         }
     }
-    CJC_ASSERT(!checkResult || result != nullptr);
     return result;
 }
 

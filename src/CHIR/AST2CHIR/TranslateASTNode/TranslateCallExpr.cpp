@@ -1051,7 +1051,8 @@ Ptr<Type> Translator::GetMemberFuncCallerInstType(const AST::CallExpr& expr, boo
         }
         Type* root = callerType->IsRef() ? StaticCast<RefType*>(callerType)->GetBaseType() : callerType;
         callerType = GetExactParentType(*root, *expr.resolvedFunction, *instFuncType, funcInstTypeArgs, false);
-        if (callerType != nullptr && callerType->IsClass()) {
+        CJC_NULLPTR_CHECK(callerType);
+        if (callerType->IsClass()) {
             callerType = builder.GetType<RefType>(callerType);
         }
     }

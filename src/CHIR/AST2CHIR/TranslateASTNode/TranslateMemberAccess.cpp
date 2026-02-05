@@ -131,7 +131,7 @@ Ptr<CHIR::Type> Translator::GetTypeOfInvokeStatic(const AST::Decl& funcDecl)
 }
 
 std::pair<CHIR::Type*, FuncCallType> Translator::GetExactParentTypeAndFuncType(
-    const AST::NameReferenceExpr& expr, Type& thisType, const AST::FuncDecl& funcDecl, bool isVirtualFuncCall)
+    const AST::NameReferenceExpr& expr, Type& thisType, const AST::FuncDecl& funcDecl, bool& isVirtualFuncCall)
 {
     auto funcType = StaticCast<FuncType*>(TranslateType(*expr.ty));
     auto paramTys = funcType->GetParamTypes();
@@ -145,6 +145,26 @@ std::pair<CHIR::Type*, FuncCallType> Translator::GetExactParentTypeAndFuncType(
     }
     auto thisDerefTy = thisType.StripAllRefs();
     auto parentType = GetExactParentType(*thisDerefTy, funcDecl, *funcType, funcInstArgs, isVirtualFuncCall);
+    /** we can't find a parent type in following case:
+        interface I { func foo(): Unit }
+        class A<T> where T <: I {}
+        func goo<X>(a : X) where X <: A<X> {
+            a.foo()  // which `foo` we should pick ?
+        }
+
+        generic type X's upper bound is A<X> and I(because of T <: I in A<T>)
+        because A<X> is not `open`, so there is no sub type of A<X>, so `a.foo()` is not a virtual func call,
+        then we should find a function with body in class A<T> and interface I, unfortunately, we can't find one,
+        so we have to pick a virtual method, the `foo` in interface I
+        Sema doesn't care about virtual func call or not, but CHIR does, otherwise, we will generate many
+        virtual func call in O0, that will cause runtime problems
+    */
+    if (parentType == nullptr) {
+        CJC_ASSERT(!isVirtualFuncCall);
+        parentType = GetExactParentType(*thisDerefTy, funcDecl, *funcType, funcInstArgs, true);
+        CJC_NULLPTR_CHECK(parentType);
+        isVirtualFuncCall = true;
+    }
     if (!funcDecl.TestAttr(AST::Attribute::STATIC)) {
         CJC_ASSERT(!paramTys.empty());
         /**
