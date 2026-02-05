@@ -669,24 +669,4 @@ OwnedPtr<AST::FuncDecl> TypeChecker::TypeCheckerImpl::CreateToAny(AST::Decl& out
 
     return toAnyFunc;
 }
-
-void TypeChecker::TypeCheckerImpl::PerformToAnyInsertion(AST::Package& pkg)
-{
-    if (ci->invocation.globalOptions.disableInstantiation) {
-        return;
-    }
-    auto addToAny = [this](const OwnedPtr<Decl>& decl) {
-        if (decl->astKind == ASTKind::STRUCT_DECL && !decl->TestAttr(Attribute::GENERIC)) {
-            auto sd = RawStaticCast<AST::StructDecl*>(decl.get());
-            auto fd = CreateToAny(*sd);
-            fd->EnableAttr(Attribute::IN_STRUCT);
-            fd->funcBody->parentStruct = sd;
-            fd->toBeCompiled = sd->toBeCompiled;
-            (void)sd->body->decls.emplace_back(std::move(fd));
-        }
-    };
-    IterateToplevelDecls(pkg, addToAny);
-    (void)std::for_each(pkg.genericInstantiatedDecls.begin(), pkg.genericInstantiatedDecls.end(),
-        [&addToAny](auto& it) { addToAny(it); });
-}
 #endif

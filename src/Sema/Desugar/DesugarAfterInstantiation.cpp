@@ -105,11 +105,6 @@ void TypeChecker::TypeCheckerImpl::PerformDesugarAfterInstantiation([[maybe_unus
     if (pkg.files.empty()) {
         return;
     }
-#ifdef CANGJIE_CODEGEN_CJNATIVE_BACKEND
-    if (!ci->invocation.globalOptions.disableReflection) {
-        PerformToAnyInsertion(pkg);
-    }
-#endif
     PerformRecursiveTypesElimination();
     UpdateDeclAttributes(pkg, ci->invocation.globalOptions.exportForTest);
     if (ci->invocation.globalOptions.enableCoverage) {

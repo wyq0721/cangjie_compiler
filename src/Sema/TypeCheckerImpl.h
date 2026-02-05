@@ -617,7 +617,6 @@ private:
     /* Synthesize specialized for desugar after sema. Will not recover previous desugar results */
     Ptr<AST::Ty> SynthesizeWithoutRecover(const CheckerContext& ctx, Ptr<AST::Node> node);
 #ifdef CANGJIE_CODEGEN_CJNATIVE_BACKEND
-    void PerformToAnyInsertion(AST::Package& pkg);
     OwnedPtr<AST::FuncDecl> CreateToAny(AST::Decl& outerDecl);
 #endif
 

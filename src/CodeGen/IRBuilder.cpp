@@ -106,7 +106,7 @@ llvm::AllocaInst* IRBuilder2::CreateEntryAlloca(llvm::Type* type, llvm::Value* a
 
 llvm::Instruction* IRBuilder2::CreateEntryAlloca(const CGType& cgType, const llvm::Twine& name)
 {
-    if (!GetCGContext().GetCompileOptions().disableInstantiation || cgType.GetSize()) {
+    if (cgType.GetSize()) {
         auto allocatedType = cgType.IsCGFunction()
             ? dynamic_cast<const CGFunctionType&>(cgType).GetLLVMFunctionType()->getPointerTo()
             : cgType.GetLLVMType();
@@ -138,20 +138,19 @@ llvm::Value* IRBuilder2::CreateLoad(const CGValue& cgVal, const llvm::Twine& nam
 {
     auto elementCGType = cgVal.GetCGType()->GetPointerElementType();
     auto elementType = elementCGType->GetLLVMType();
-    if (cgMod.GetCGContext().GetCompileOptions().disableInstantiation) {
-        if (auto& ori = elementCGType->GetOriginal(); !elementCGType->GetSize() && !ori.IsGeneric()) {
-            auto ti = CreateTypeInfo(ori);
-            auto payloadSize = GetLayoutSize_32(ori);
-            auto tmp = CallIntrinsicAllocaGeneric({ti, payloadSize});
-            if (GetCGContext().GetBasePtrOf(cgVal.GetRawValue()) ||
-                cgVal.GetRawValue()->getType()->getPointerAddressSpace() == 0U) {
-                CreateMemCpy(GetPayloadFromObject(tmp), llvm::MaybeAlign(), *cgVal, llvm::MaybeAlign(), payloadSize);
-            } else {
-                CallIntrinsicAssignGeneric({tmp, *cgVal, ti});
-            }
-            return tmp;
+    if (auto& ori = elementCGType->GetOriginal(); !elementCGType->GetSize() && !ori.IsGeneric()) {
+        auto ti = CreateTypeInfo(ori);
+        auto payloadSize = GetLayoutSize_32(ori);
+        auto tmp = CallIntrinsicAllocaGeneric({ti, payloadSize});
+        if (GetCGContext().GetBasePtrOf(cgVal.GetRawValue()) ||
+            cgVal.GetRawValue()->getType()->getPointerAddressSpace() == 0U) {
+            CreateMemCpy(GetPayloadFromObject(tmp), llvm::MaybeAlign(), *cgVal, llvm::MaybeAlign(), payloadSize);
+        } else {
+            CallIntrinsicAssignGeneric({tmp, *cgVal, ti});
         }
+        return tmp;
     }
+
     auto* loadInst = CreateLoad(elementType, cgVal.GetRawValue(), name);
     if (auto& ori = elementCGType->GetOriginal(); ori.IsEnum()) {
         llvm::cast<llvm::Instruction>(loadInst)->setMetadata(

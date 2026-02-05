@@ -40,15 +40,13 @@ public:
 
     void SetCHIRExpr(const CHIRExprWrapper* chirExprWrapper)
     {
-        if (cgMod.GetCGContext().GetCompileOptions().disableInstantiation) {
-            this->chirExpr = chirExprWrapper;
-            this->cgFunction = cgMod.GetOrInsertCGFunction(chirExprWrapper->GetTopLevelFunc());
-        }
+        chirExpr = chirExprWrapper;
+        cgFunction = cgMod.GetOrInsertCGFunction(chirExprWrapper->GetTopLevelFunc());
     }
 
     inline void SetInsertCGFunction(const CGFunction& cgFunc)
     {
-        this->cgFunction = &cgFunc;
+        cgFunction = &cgFunc;
     }
 
     const CGFunction* GetInsertCGFunction() const
