@@ -699,9 +699,6 @@ void TypeChecker::TypeCheckerImpl::IsNamespaceMemberAccessLegal(
             diag.Diagnose(ma, DiagKind::sema_package_internal_decl_obtain_illegal, GetAccessLevelStr(target),
                 ma.field.Val(), targetPackage);
         }
-    } else if (!ma.isPattern && ma.isAlone && ma.baseExpr->ty && ma.baseExpr->ty->kind == TypeKind::TYPE_ENUM &&
-        target.astKind == ASTKind::FUNC_DECL && target.TestAttr(Attribute::ENUM_CONSTRUCTOR)) {
-        DiagMemberAccessNotFound(ma);
     } else if (realTarget->IsNominalDecl() && !realTarget->TestAttr(Attribute::FOREIGN) &&
         target.TestAttr(Attribute::ABSTRACT)) {
         auto fieldRange = MakeRange(ma.field);
