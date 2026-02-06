@@ -586,11 +586,6 @@ Ptr<Value> Translator::TranslateForeignFuncCall(const AST::CallExpr& expr)
     }
 
     auto resolvedFunction = expr.resolvedFunction;
-
-    // Translate code position info
-    const auto& loc = TranslateLocation(expr);
-    const auto& warningLoc = TranslateLocation(*expr.baseFunc);
-
     // polish this API
     auto [paramInstTys, retInstTy] = GetMemberFuncParamAndRetInstTypes(expr);
     bool hasVarArg = StaticCast<AST::FuncTy*>(expr.resolvedFunction->ty)->hasVariableLenArg;
@@ -689,10 +684,6 @@ Translator::LeftValueInfo Translator::TranslateStructOrClassCtorCallAsLeftValue(
         return LeftValueInfo(nullptr, {});
     }
 
-    // Translate code position info
-    const auto& loc = TranslateLocation(expr);
-    const auto& warningLoc = TranslateLocation(*expr.baseFunc);
-
     // Calculate instantiated callee func type
     auto thisTy = chirTy.TranslateType(*expr.ty)->StripAllRefs();
     auto thisTyRef = builder.GetType<RefType>(thisTy);
@@ -727,7 +718,6 @@ Value* Translator::TranslateStructOrClassCtorCall(const AST::CallExpr& expr)
 {
     // Translate code position info
     const auto& loc = TranslateLocation(expr);
-    const auto& warningLoc = TranslateLocation(*expr.baseFunc);
 
     // Calculate instantiated callee func type
     auto thisTy = chirTy.TranslateType(*expr.ty)->StripAllRefs();
@@ -955,11 +945,6 @@ Value* Translator::TranslateTrivialFuncCall(const AST::CallExpr& expr)
     }
 
     auto resolvedFunction = expr.resolvedFunction;
-
-    // Translate code position info
-    const auto& loc = TranslateLocation(expr);
-    const auto& warningLoc = TranslateLocation(*expr.baseFunc);
-
     auto funcInstTypeArgs = GetFuncInstArgs(expr);
     // polish this API
     auto [paramInstTys, retInstTy] = GetMemberFuncParamAndRetInstTypes(expr);
