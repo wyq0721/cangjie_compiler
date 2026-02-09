@@ -117,6 +117,11 @@ void MinGW_CJNATIVE::GenerateArchiveTool(const std::vector<TempFileInfo>& objFil
     for (const auto& objFile : objFiles) {
         tool->AppendArg(objFile.filePath);
     }
+    if (objFiles.empty()) {
+        for (const auto& inputObj : driverOptions.inputObjs) {
+            tool->AppendArg(inputObj);
+        }
+    }
     backendCmds.emplace_back(MakeSingleToolBatch({std::move(tool)}));
 }
 
