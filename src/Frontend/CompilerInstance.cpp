@@ -730,30 +730,6 @@ void DoMangling(const BaseMangler& baseMangler, size_t parallelNum, const std::v
         DoNewMangling(baseMangler, topDecls, start, topDecls.size());
     }
 }
-
-void SortForBep(Package& pkg)
-{
-    std::unordered_map<Ptr<Decl>, std::string> declMangleMap;
-    auto compare = [&declMangleMap](const Ptr<Decl> d1, const Ptr<Decl> d2) {
-        const std::string& mangle1 = declMangleMap[d1];
-        const std::string& mangle2 = declMangleMap[d2];
-        if (mangle1 == mangle2) {
-            return CompNodeByPos(d1, d2);
-        }
-        return mangle1 < mangle2;
-    };
-    // Reorder genericInstantiatedDecls for bep.
-    std::set<Ptr<Decl>, decltype(compare)> orderedDecls(compare);
-    std::for_each(pkg.genericInstantiatedDecls.begin(), pkg.genericInstantiatedDecls.end(),
-        [&orderedDecls, &declMangleMap](auto& it) {
-            BaseMangler mangler;
-            declMangleMap.emplace(it.get(), mangler.Mangle(*it));
-            orderedDecls.emplace(it.release());
-        });
-    pkg.genericInstantiatedDecls.clear();
-    std::for_each(orderedDecls.cbegin(), orderedDecls.cend(),
-        [&pkg](auto it) { pkg.genericInstantiatedDecls.emplace_back(OwnedPtr<Decl>(it)); });
-}
 #endif
 } // namespace
 
@@ -785,25 +761,23 @@ void CompilerInstance::ManglingHelpFunction(const BaseMangler& baseMangler)
             deduplicatedEmplace(decl.get(), package->fullPackageName);
         }
     }
-    if (invocation.globalOptions.disableInstantiation) {
-        for (auto& importPkg : importManager.GetAllImportedPackages()) {
-            CJC_NULLPTR_CHECK(importPkg->srcPackage.get());
-            // exclude current package
-            if (!importPkg->srcPackage->TestAttr(AST::Attribute::IMPORTED)) {
-                continue;
+    for (auto& importPkg : importManager.GetAllImportedPackages()) {
+        CJC_NULLPTR_CHECK(importPkg->srcPackage.get());
+        // exclude current package
+        if (!importPkg->srcPackage->TestAttr(AST::Attribute::IMPORTED)) {
+            continue;
+        }
+        for (auto& file : importPkg->srcPackage->files) {
+            for (auto& decl : file->decls) {
+                deduplicatedEmplace(decl.get(), importPkg->fullPackageName);
             }
-            for (auto& file : importPkg->srcPackage->files) {
-                for (auto& decl : file->decls) {
-                    deduplicatedEmplace(decl.get(), importPkg->fullPackageName);
-                }
-                for (auto& decl : file->exportedInternalDecls) {
-                    deduplicatedEmplace(decl.get(), importPkg->fullPackageName);
-                }
+            for (auto& decl : file->exportedInternalDecls) {
+                deduplicatedEmplace(decl.get(), importPkg->fullPackageName);
             }
-            for (auto& decl : importPkg->srcPackage->genericInstantiatedDecls) {
-                if (decl->IsNominalDecl()) {
-                    deduplicatedEmplace(decl.get(), importPkg->fullPackageName);
-                }
+        }
+        for (auto& decl : importPkg->srcPackage->genericInstantiatedDecls) {
+            if (decl->IsNominalDecl()) {
+                deduplicatedEmplace(decl.get(), importPkg->fullPackageName);
             }
         }
     }
@@ -835,13 +809,6 @@ bool CompilerInstance::PerformMangling()
     mangler->lambdaCounter = cachedInfo.lambdaCounter;
     ManglingHelpFunction(*mangler);
     cachedInfo.lambdaCounter = mangler->lambdaCounter;
-#ifdef CANGJIE_CODEGEN_CJNATIVE_BACKEND
-    if (!invocation.globalOptions.disableInstantiation) {
-        for (auto& package : GetSourcePackages()) {
-            SortForBep(*package);
-        }
-    }
-#endif
     // when dump to screen, only dump once and dump the ast immediately after mangling
     if (!srcPkgs.empty() && invocation.globalOptions.NeedDumpAST()) {
         DumpAST(GetSourcePackages(), invocation.globalOptions.output, "mangle", invocation.globalOptions.dumpToScreen);

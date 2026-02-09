@@ -934,10 +934,6 @@ std::unordered_map<Options::ID, std::function<bool(GlobalOptions&, OptionArgInst
         return true;
     }},
     { Options::ID::DISABLE_SEMA_VIC, OPTION_TRUE_ACTION(opts.disableSemaVic = true)},
-    { Options::ID::DISABLE_INSTANTIATION, [](GlobalOptions& opts, [[maybe_unused]] OptionArgInstance& arg) {
-        opts.disableInstantiation = true;
-        return true;
-    }},
     { Options::ID::DEBUG_CODEGEN, OPTION_TRUE_ACTION(opts.codegenDebugMode = true) },
     { Options::ID::CHIR_OPT_DEBUG, OPTION_TRUE_ACTION(opts.chirDebugOptimizer = true) },
     { Options::ID::DUMP_AST, OPTION_TRUE_ACTION(opts.dumpAST = true)},

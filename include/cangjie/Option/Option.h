@@ -805,9 +805,6 @@ public:
     bool chirDeserialize = false;
     std::string chirDeserializePath;
 
-#ifdef CANGJIE_CODEGEN_CJNATIVE_BACKEND
-    bool disableInstantiation = true;
-#endif
     bool disableSemaVic = false;
     bool enableChirRGetOrThrowE = false;
     bool disableChirUselessImportElimination = false;

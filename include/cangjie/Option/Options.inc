@@ -367,9 +367,6 @@ OPTION("--emit-chir", EMIT_CHIR, FLAG_WITH_ARG, {BACKEND(ALL)},
 OPTION("--chir-wfc", CHIR_WFC, SEPARATED, { BACKEND(ALL) },
     { GROUP(GLOBAL) COMMA GROUP(STABLE) }, nullptr, simple_on_off_mode, SINGLE_OCCURRENCE,
     "Well-formedness check for CHIR. Candidate modes: ")
-OPTION("--disable-inst", DISABLE_INSTANTIATION, FLAG, { BACKEND(CJNATIVE) },
-    { GROUP(GLOBAL) COMMA GROUP(STABLE)}, nullptr, {}, MULTIPLE_OCCURRENCE,
-    "Disable instantiation")
 OPTION("--enable-chir-redundant-getorthrow-elimination", ENABLE_CHIR_REDUNDANT_GETORTHROW_ELIMINATION, FLAG,
     { BACKEND(CJNATIVE) }, { GROUP(GLOBAL) COMMA GROUP(STABLE) }, nullptr, {}, MULTIPLE_OCCURRENCE,
     "Enable CHIR redundant GetOrThrow elimination.")
