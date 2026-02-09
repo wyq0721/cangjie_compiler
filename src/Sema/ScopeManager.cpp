@@ -131,27 +131,27 @@ Symbol* ScopeManager::GetOutMostSymbol(const ASTContext& ctx, SymbolKind symbolK
 Symbol* ScopeManager::GetCurSatisfiedSymbol(const ASTContext& ctx, const std::string& scopeName,
     const std::function<bool(AST::Symbol&)>& satisfy, const std::function<bool(AST::Symbol&)>& fail)
 {
+    // Walks up through scope gates by repeatedly calling GetScopeGateName on the current gate name.
+    // At each gate, it looks up the corresponding symbol and applies `fail` first, then `satisfy`.
+    // The traversal stops when either `fail` returns true, `satisfy` returns true, or the top is reached.
     std::string scopeGateName = ScopeManagerApi::GetScopeGateName(scopeName);
-    while (true) {
+    while (!scopeGateName.empty()) {
         auto sym = ScopeManagerApi::GetScopeGate(ctx, scopeGateName);
-        std::string tmpScopeName;
         if (sym) {
-            tmpScopeName = sym->scopeName;
             if (fail(*sym)) {
                 return nullptr;
             }
             if (satisfy(*sym)) {
                 return sym;
             }
-        } else {
-            if (scopeGateName.empty()) {
-                // Reach top but not found.
-                return nullptr;
-            }
-            tmpScopeName = ScopeManagerApi::GetParentScopeName(scopeGateName);
         }
-        scopeGateName = ScopeManagerApi::GetScopeGateName(tmpScopeName);
+        // Move to parent scope gate.
+        // Note: GetScopeGateName will return the parent scope gate name when input is scope gate name.
+        //       e.g. a0a_a -> a0a, a0a -> a_a.
+        scopeGateName = ScopeManagerApi::GetScopeGateName(scopeGateName);
     }
+    // Reach top but not found.
+    return nullptr;
 }
 
 Symbol* ScopeManager::GetCurSatisfiedSymbolUntilTopLevel(const ASTContext& ctx,
@@ -257,6 +257,8 @@ Symbol* ScopeManager::GetCurSymbolByKind(
         case SymbolKind::TOPLEVEL:
             finder = [](const Symbol& sym) { return sym.scopeLevel == 0; };
             break;
+        default:
+            return nullptr;
     }
     return GetCurSatisfiedSymbolUntilTopLevel(ctx, scopeName, finder);
 }

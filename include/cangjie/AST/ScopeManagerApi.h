@@ -90,9 +90,10 @@ struct ScopeManagerApi {
     /**
      * Get scope gate name of @p scopeName.
      *
+     * @param scopeNameOrGateName The scope name or scope gate name.
      * @return scope gate name, scope gate name of a0b is a_b, a0b_a is a_b.
      */
-    static std::string GetScopeGateName(const std::string& scopeName);
+    static std::string GetScopeGateName(const std::string& scopeNameOrGateName);
 
     /**
      * Each level of scope name are encoding will 52 chars, split by '0'.

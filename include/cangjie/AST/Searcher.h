@@ -16,6 +16,7 @@
 #include <functional>
 #include <memory>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "cangjie/AST/Query.h"
 #include "cangjie/AST/Symbol.h"
@@ -35,7 +36,7 @@ public:
     char c;                         /**< Trie node's value. */
     std::string value;              /**< Store string value at the leaf node. */
     std::string prefix;             /**< Store prefix string of current node. */
-    std::set<std::string> suffixes; /**< Store suffix strings of current node. */
+    std::unordered_set<std::string> suffixes; /**< Store suffix strings of current node. */
     std::set<AST::Symbol*> ids;     /**< Symbol ID set. */
     uint32_t depth = 0;             /**< Depth of the node in the tree. */
     TrieNode* parent{nullptr};      /**< Pointer to the parent node. */

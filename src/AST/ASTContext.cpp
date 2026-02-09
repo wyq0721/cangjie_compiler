@@ -123,19 +123,12 @@ void ASTContext::InsertEnumConstructor(const std::string& name, size_t argSize, 
     if (enableMacroInLsp && IsNodeInOriginalMacroCallNodes(decl)) {
         return;
     }
-    auto iter = enumConstructors.find(name);
-    if (iter != enumConstructors.cend()) {
-        auto& argSizeToDecls = iter->second;
-        auto argSizeToDeclsIter = argSizeToDecls.find(argSize);
-        if (argSizeToDeclsIter != argSizeToDecls.cend()) {
-            argSizeToDeclsIter->second.emplace_back(&decl);
-        } else {
-            argSizeToDecls.emplace(std::make_pair(argSize, std::vector<Ptr<Decl>>{&decl}));
-        }
-    } else {
-        enumConstructors.emplace(std::make_pair(
-            name, std::unordered_map<size_t, std::vector<Ptr<Decl>>>{{argSize, std::vector<Ptr<Decl>>{&decl}}}));
-    }
+    // Use try_emplace to avoid duplicate lookup: first find, then insert
+    auto [outerIter, _] = enumConstructors.try_emplace(name);
+    auto& argSizeToDecls = outerIter->second;
+    // Use try_emplace for inner map as well
+    [[maybe_unused]] auto [innerIter, innerInserted] = argSizeToDecls.try_emplace(argSize);
+    innerIter->second.emplace_back(&decl);
 }
 
 bool ASTContext::IsNodeInOriginalMacroCallNodes(AST::Decl& decl) const

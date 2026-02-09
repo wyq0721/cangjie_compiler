@@ -11,11 +11,14 @@
  */
 
 #include "TypeCheckerImpl.h"
+#include "cangjie/Utils/Utils.h"
 
 using namespace Cangjie;
 using namespace AST;
 
 namespace {
+using UsedPackageMap = std::unordered_map<std::string, std::unordered_set<std::pair<std::string, Ptr<Decl>>, HashPair>>;
+
 class CheckUnusedImportImpl {
 public:
     CheckUnusedImportImpl(Package& pkg, DiagnosticEngine& diag, ImportManager& importManager)
@@ -31,30 +34,29 @@ private:
     void CollectNeedCheckImports();
     bool IsImportContentUsed(AST::ImportSpec& importSpec);
     bool IsImportContentUsedInMacro(AST::ImportSpec& importSpec);
-    void AddUsedExtendDeclTarget(const Ptr<AST::ExtendDecl> ed,
-        std::map<std::string, std::set<std::pair<std::string, Ptr<Decl>>>>& usedMap) const;
+    void AddUsedExtendDeclTarget(const Ptr<AST::ExtendDecl> ed, UsedPackageMap& usedMap) const;
     void AddUsedTargetWithIdentifier(Node& node, const std::string& identifier, Ptr<Decl> target);
     void AddUsedTarget(Node& node, Ptr<Decl> target);
     void AddUsedPackage(Node& node);
     void ReportUnusedImports();
-    std::map<std::string, std::set<std::pair<std::string, Ptr<Decl>>>>& GetUsedPackageMap(ImportSpec& importSpec);
-    std::map<std::string, std::set<std::pair<std::string, Ptr<Decl>>>>& GetCacheUsedPackageMap(ImportSpec& importSpec);
+    UsedPackageMap& GetUsedPackageMap(ImportSpec& importSpec);
+    UsedPackageMap& GetCacheUsedPackageMap(ImportSpec& importSpec);
     bool CheckImportAllUsed(ImportSpec& importSpec, const std::string& packageName,
-        std::map<std::string, std::set<std::pair<std::string, Ptr<Decl>>>>& usedPackage,
-        std::map<std::string, std::set<std::pair<std::string, Ptr<Decl>>>>& cacheUsedPackage,
+        UsedPackageMap& usedPackage,
+        UsedPackageMap& cacheUsedPackage,
         const std::map<std::string, OrderedDeclSet>& declsMap);
     bool CheckDeclImportUsed(ImportSpec& importSpec, const std::string& packageName,
-        std::map<std::string, std::set<std::pair<std::string, Ptr<Decl>>>>& usedPackage,
-        std::map<std::string, std::set<std::pair<std::string, Ptr<Decl>>>>& cacheUsedPackage,
+        UsedPackageMap& usedPackage,
+        UsedPackageMap& cacheUsedPackage,
         const std::map<std::string, OrderedDeclSet>& declsMap);
     bool CheckPackageImportUsed(ImportSpec& importSpec, const std::string& packageName,
-        const std::set<std::pair<std::string, Ptr<Decl>>>& usedDecls);
+        const std::unordered_set<std::pair<std::string, Ptr<Decl>>, HashPair>& usedDecls);
     void UpdateCacheForDecl(ImportSpec& importSpec, const std::string& packageName, const std::string& identifier,
         Ptr<Decl> decl);
-    std::map<std::string, std::set<std::pair<std::string, Ptr<Decl>>>> usedPackageInAST;
-    std::map<Ptr<File>, std::map<std::string, std::set<std::pair<std::string, Ptr<Decl>>>>> usedPackageInFile;
-    std::map<std::string, std::set<std::pair<std::string, Ptr<Decl>>>> cacheUsedPackageInAST;
-    std::map<Ptr<File>, std::map<std::string, std::set<std::pair<std::string, Ptr<Decl>>>>> cacheUsedPackageInFile;
+    UsedPackageMap usedPackageInAST;
+    std::unordered_map<Ptr<File>, UsedPackageMap> usedPackageInFile;
+    UsedPackageMap cacheUsedPackageInAST;
+    std::unordered_map<Ptr<File>, UsedPackageMap> cacheUsedPackageInFile;
     std::vector<Ptr<ImportSpec>> needCheckImport;
     Package& pkg;
     DiagnosticEngine& diag;
@@ -75,7 +77,7 @@ std::string GetRefIdentifier(Node& node)
 } // namespace
 
 void CheckUnusedImportImpl::AddUsedExtendDeclTarget(
-    const Ptr<AST::ExtendDecl> ed, std::map<std::string, std::set<std::pair<std::string, Ptr<Decl>>>>& usedMap) const
+    const Ptr<AST::ExtendDecl> ed, UsedPackageMap& usedMap) const
 {
     Ptr<Decl> target = nullptr;
     for (auto& type : ed->inheritedTypes) {
@@ -130,7 +132,7 @@ void CheckUnusedImportImpl::AddUsedTargetWithIdentifier(Node& node, const std::s
 
 void CheckUnusedImportImpl::AddUsedTarget(Node& node, Ptr<Decl> target)
 {
-    std::string identifier = GetRefIdentifier(node);
+    const std::string& identifier = GetRefIdentifier(node);
     if (!identifier.empty()) {
         AddUsedTargetWithIdentifier(node, identifier, target);
     } else {
@@ -193,7 +195,7 @@ bool CheckUnusedImportImpl::IsImportContentUsedInMacro(AST::ImportSpec& importSp
 {
     CJC_ASSERT(importSpec.curFile);
     auto cjoManager = importManager.GetCjoManager();
-    std::string packageName = cjoManager->GetPackageNameByImport(importSpec);
+    const std::string& packageName = cjoManager->GetPackageNameByImport(importSpec);
 
     auto usedMacroInFile = importManager.GetUsedMacroDecls(*importSpec.curFile);
     auto declsMap = cjoManager->GetPackageMembers(packageName);
@@ -224,14 +226,14 @@ bool CheckUnusedImportImpl::IsImportContentUsedInMacro(AST::ImportSpec& importSp
     return false;
 }
 
-std::map<std::string, std::set<std::pair<std::string, Ptr<Decl>>>>& CheckUnusedImportImpl::GetUsedPackageMap(
+UsedPackageMap& CheckUnusedImportImpl::GetUsedPackageMap(
     ImportSpec& importSpec)
 {
     return (importSpec.IsPrivateImport() && importSpec.curFile) ? usedPackageInFile[importSpec.curFile]
                                                                 : usedPackageInAST;
 }
 
-std::map<std::string, std::set<std::pair<std::string, Ptr<Decl>>>>& CheckUnusedImportImpl::GetCacheUsedPackageMap(
+UsedPackageMap& CheckUnusedImportImpl::GetCacheUsedPackageMap(
     ImportSpec& importSpec)
 {
     return (importSpec.IsPrivateImport() && importSpec.curFile) ? cacheUsedPackageInFile[importSpec.curFile]
@@ -248,8 +250,8 @@ void CheckUnusedImportImpl::UpdateCacheForDecl(ImportSpec& importSpec, const std
 }
 
 bool CheckUnusedImportImpl::CheckImportAllUsed(ImportSpec& importSpec, const std::string& packageName,
-    std::map<std::string, std::set<std::pair<std::string, Ptr<Decl>>>>& usedPackage,
-    std::map<std::string, std::set<std::pair<std::string, Ptr<Decl>>>>& cacheUsedPackage,
+    UsedPackageMap& usedPackage,
+    UsedPackageMap& cacheUsedPackage,
     const std::map<std::string, OrderedDeclSet>& declsMap)
 {
     if (!cacheUsedPackage[packageName].empty()) {
@@ -258,7 +260,7 @@ bool CheckUnusedImportImpl::CheckImportAllUsed(ImportSpec& importSpec, const std
 
     for (auto [_, decls] : declsMap) {
         for (auto decl : decls) {
-            std::set<std::pair<std::string, Ptr<Decl>>> usedDecls = usedPackage[decl->fullPackageName];
+            auto& usedDecls = usedPackage[decl->fullPackageName];
             auto declPair = std::make_pair(decl->identifier.Val(), decl);
             if (usedDecls.find(declPair) != usedDecls.end()) {
                 UpdateCacheForDecl(importSpec, packageName, decl->identifier.Val(), decl);
@@ -270,8 +272,7 @@ bool CheckUnusedImportImpl::CheckImportAllUsed(ImportSpec& importSpec, const std
 }
 
 bool CheckUnusedImportImpl::CheckDeclImportUsed(ImportSpec& importSpec, const std::string& packageName,
-    std::map<std::string, std::set<std::pair<std::string, Ptr<Decl>>>>& usedPackage,
-    std::map<std::string, std::set<std::pair<std::string, Ptr<Decl>>>>& cacheUsedPackage,
+    UsedPackageMap& usedPackage, UsedPackageMap& cacheUsedPackage,
     const std::map<std::string, OrderedDeclSet>& declsMap)
 {
     std::string identifier =
@@ -287,7 +288,7 @@ bool CheckUnusedImportImpl::CheckDeclImportUsed(ImportSpec& importSpec, const st
             return true;
         }
 
-        std::set<std::pair<std::string, Ptr<Decl>>> usedDecls = usedPackage[decl->fullPackageName];
+        auto& usedDecls = usedPackage[decl->fullPackageName];
         if (usedDecls.find(declPair) != usedDecls.end()) {
             UpdateCacheForDecl(importSpec, packageName, identifier, decl);
             return true;
@@ -297,7 +298,7 @@ bool CheckUnusedImportImpl::CheckDeclImportUsed(ImportSpec& importSpec, const st
 }
 
 bool CheckUnusedImportImpl::CheckPackageImportUsed(ImportSpec& importSpec, const std::string& packageName,
-    const std::set<std::pair<std::string, Ptr<Decl>>>& usedDecls)
+    const std::unordered_set<std::pair<std::string, Ptr<Decl>>, HashPair>& usedDecls)
 {
     std::string identifier =
         importSpec.IsImportAlias() ? importSpec.content.aliasName.Val() : importSpec.content.identifier.Val();
@@ -309,10 +310,11 @@ bool CheckUnusedImportImpl::CheckPackageImportUsed(ImportSpec& importSpec, const
 bool CheckUnusedImportImpl::IsImportContentUsed(ImportSpec& importSpec)
 {
     auto cjoManager = importManager.GetCjoManager();
-    std::string packageName = cjoManager->GetPackageNameByImport(importSpec);
+    const std::string& packageName = cjoManager->GetPackageNameByImport(importSpec);
 
-    auto& usedPackage = GetUsedPackageMap(importSpec);
-    std::set<std::pair<std::string, Ptr<Decl>>> usedDecls = usedPackage[packageName];
+    UsedPackageMap& usedPackage = GetUsedPackageMap(importSpec);
+
+    const auto& usedDecls = usedPackage[packageName];
     if (!usedDecls.empty() && importSpec.IsImportAll()) {
         return true;
     }

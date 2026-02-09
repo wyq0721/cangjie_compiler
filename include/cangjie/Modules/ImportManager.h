@@ -101,6 +101,12 @@ public:
     std::vector<std::pair<std::string, std::vector<Ptr<AST::Decl>>>> GetImportedDecls(const AST::File& file) const;
 
     /**
+     * Get all imported decls as a flat vector (without grouping by name).
+     * This is more efficient when you only need all decls without name grouping.
+     */
+    std::vector<Ptr<AST::Decl>> GetAllImportedDecls(const AST::File& file) const;
+
+    /**
      * Get all accessible decls by @param file and @param name, and return decls.
      */
     std::vector<Ptr<AST::Decl>> GetImportedDeclsByName(const AST::File& file, const std::string& name) const;
