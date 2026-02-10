@@ -562,7 +562,9 @@ bool ImportManager::ResolveImportedPackages(const std::vector<Ptr<Package>>& pac
         curPackage = pkg;
         // Files of common part need to be loaded in advance,
         // to be able to handle `import`s of common part.
-        cjoManager->LoadFilesOfCommonPart(pkg);
+        if (!cjoManager->LoadFilesOfCommonPart(pkg)) {
+            return false;
+        }
         success = ResolveImportedPackageHeaders(*curPackage, false) && success;
         curPackage->ClearAllDependentStdPkgs();
         for (auto [_, typeWithFullPkgName] : stdDepsMap) {

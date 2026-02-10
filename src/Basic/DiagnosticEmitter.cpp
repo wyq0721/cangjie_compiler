@@ -523,7 +523,7 @@ void DiagnosticEmitterImpl::EmitErrorLocation(const Position& pos)
     auto color = noColor ? NO_COLOR : OTHER_HINT_COLOR;
     prefix += GetColoredString(color, GetLineSymbol());
     prefix += g_spaceOfNum(1);
-    auto source = sm.GetSource(pos.fileID);
+    auto& source = sm.GetSource(pos.fileID);
     std::string path;
     if (source.packageName.has_value()) {
         path = "(package " + source.packageName.value() + ")" + FileUtil::GetFileName(source.path);

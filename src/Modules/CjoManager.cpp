@@ -302,17 +302,20 @@ bool CjoManager::NeedCollectDependency(const std::string& curName, bool isCurMac
     return false;
 }
 
-void CjoManager::LoadFilesOfCommonPart(Ptr<Package> pkg)
+bool CjoManager::LoadFilesOfCommonPart(Ptr<Package> pkg)
 {
     if (!impl->GetGlobalOptions().IsCompilingCJMPSpecific() && impl->GetGlobalOptions().commonPartCjos.empty()) {
-        return;
+        return true;
     }
     CJC_NULLPTR_CHECK(pkg);
     // Remove existing isCommon files from pkg before loading new common part for lsp incremental compilation.
     Utils::EraseIf(pkg->files, [](const auto& file) { return file->TestAttr(Attribute::FROM_COMMON_PART); });
     for (Ptr<ASTLoader> commonLoader : GetCommonPartCjos(pkg->fullPackageName)) {
-        commonLoader->PreloadCommonPartOfPackage(*pkg);
+        if (!commonLoader->PreloadCommonPartOfPackage(*pkg)) {
+            return false;
+        }
     }
+    return true;
 }
 
 void CjoManager::LoadPackageDeclsOnDemand(const std::vector<Ptr<Package>>& packages, bool fromLsp) const
