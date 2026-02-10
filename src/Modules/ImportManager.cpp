@@ -64,20 +64,6 @@ void AddImplicitImportAll(File& file, const std::string& fullPackageName)
     file.imports.emplace_back(CreateImportSpec(fullPackageName, "*", "", fullPackageNameToPrefixPaths));
 }
 
-bool HasIfAvailable(Package& pkg)
-{
-    bool ret = false;
-    auto hasIfAvailable = [&ret](Ptr<Node> node) {
-        if (auto mee = DynamicCast<MacroExpandExpr>(node); mee && mee->invocation.IsIfAvailable()) {
-            ret = true;
-            return VisitAction::STOP_NOW;
-        }
-        return VisitAction::WALK_CHILDREN;
-    };
-    Walker(&pkg, hasIfAvailable).Walk();
-    return ret;
-}
-
 void AddImplicitImports(Package& pkg, const GlobalOptions& opts)
 {
     for (auto& file : pkg.files) {
@@ -91,11 +77,6 @@ void AddImplicitImports(Package& pkg, const GlobalOptions& opts)
         }
         if (opts.compileTestsOnly && ImportManager::IsTestPackage(pkg.fullPackageName)) {
             AddImplicitImportAll(*file, ImportManager::GetMainPartPkgNameForTestPkg(pkg.fullPackageName));
-        }
-        if (opts.target.env == Triple::Environment::OHOS && HasIfAvailable(pkg)) {
-            // For @IfAvailable desugar, depend on 'ohos.device_info.DeviceInfo' and 'ohos.base.canIUse'.
-            AddImplicitImportAll(*file, "ohos.device_info");
-            AddImplicitImportAll(*file, "ohos.base");
         }
     }
 }
