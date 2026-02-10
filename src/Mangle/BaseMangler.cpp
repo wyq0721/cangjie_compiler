@@ -190,7 +190,7 @@ std::string BaseMangler::MangleFullPackageName(const std::string& packageName) c
 
 std::string BaseMangler::MangleFullPackageName(const AST::Decl& decl) const
 {
-    return MangleFullPackageName(decl.fullPackageName);
+    return MangleFullPackageName(decl.GetFullPackageName());
 }
 
 std::string BaseMangler::GetPrefixOfType(const AST::Ty& ty) const
@@ -852,7 +852,7 @@ std::string BaseMangler::ManglePrefix(const Node& node, const std::vector<Ptr<No
 std::string BaseMangler::ManglePackage(const Decl& decl) const
 {
     std::string genericPackageName = ManglePackageNameForGeneric(decl);
-    return genericPackageName.empty() ? MangleFullPackageName(decl.fullPackageName) : genericPackageName;
+    return genericPackageName.empty() ? MangleFullPackageName(decl) : genericPackageName;
 }
 
 std::unique_ptr<ManglerContext> BaseMangler::PrepareContextForPackage(const Ptr<AST::Package> pkg)
