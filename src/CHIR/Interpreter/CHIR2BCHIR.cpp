@@ -563,7 +563,7 @@ const std::unordered_map<std::string, IntrinsicKind> CHIR2BCHIR::syscall2Intrins
 
 Bchir::CodePosition CHIR2BCHIR::CHIRPos2BCHIRPos(const DebugLocation& loc)
 {
-    auto fileName = sourceManager.GetSource(static_cast<unsigned int>(loc.GetFileID())).path;
+    auto fileName = sourceManager.GetSource(loc.GetFileID()).path;
     auto fileId = fileNameToIndexMemoization.find(fileName);
     size_t fileIdx = 0;
     if (fileId == fileNameToIndexMemoization.end()) {

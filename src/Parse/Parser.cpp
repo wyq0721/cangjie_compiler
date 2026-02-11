@@ -128,7 +128,7 @@ OwnedPtr<File> ParserImpl::ParseTopLevel()
     Peek();
     // Set the begin of file at (fileID, 1, 1).
     ret->begin = {lexer->GetFileID(), 1, 1};
-    Source& source = sourceManager.GetSource(ret->begin.fileID);
+    auto& source = sourceManager.GetSource(ret->begin.fileID);
     ret->fileName = FileUtil::GetFileName(source.path);
     ret->filePath = source.path;
     ret->fileHash = source.fileHash;

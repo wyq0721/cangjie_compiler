@@ -83,7 +83,7 @@ public:
     void SetImportSourceCode(bool enable) const;
     const std::vector<std::string> GetDependentPackageNames() const;
     // Add for cjmp
-    void PreloadCommonPartOfPackage(AST::Package& pkg) const;
+    bool PreloadCommonPartOfPackage(AST::Package& pkg) const;
     std::vector<std::string> ReadFileNames() const;
 
     Ptr<AST::Ty> LoadType(FormattedIndex type) const;

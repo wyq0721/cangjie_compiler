@@ -338,7 +338,7 @@ void GenerateMacroCallFile(const std::vector<Ptr<File>>& fileSucVec,
         (void)sm.AppendSource(file->macroCallFilePath, content, isCjmpFile);
         // If lsp or debug-macro, then save the expanded macro contents to a file.
         if (ci.invocation.globalOptions.enableMacroInLSP || ci.invocation.globalOptions.enableMacroDebug) {
-            auto source = sm.GetSource(fileID).buffer;
+            auto& source = sm.GetSource(fileID).buffer;
             if (!WriteStringToFile(file->macroCallFilePath, source)) {
                 (void)ci.diag.Diagnose(file->begin, DiagKind::macro_call_save_file_failed);
             }

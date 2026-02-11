@@ -77,14 +77,14 @@ unsigned int SourceManager::GetFileId(
     auto existed = filePathToFileIDMap.find(normalizedPath);
     if (existed != filePathToFileIDMap.end()) {
         auto newBuffer = buffer;
-        auto fileID = static_cast<unsigned int>(existed->second);
-        CJC_ASSERT(static_cast<std::size_t>(fileID) < sources.size());
+        auto fileID = existed->second;
+        CJC_ASSERT_WITH_MSG(sources.count(fileID), "No source buffer found for a fileID");
         if (updateBuffer) {
             newBuffer = sources.at(fileID).buffer + buffer;
         }
         sources.at(fileID) =
             Source{fileID, normalizedPath, newBuffer, fileHash, packageName};
-        return static_cast<unsigned>(existed->second);
+        return fileID;
     } else {
         auto fileID = static_cast<unsigned int>(sources.size());
         if (isCjmpFile) {
@@ -124,7 +124,7 @@ unsigned int SourceManager::AppendSource(const std::string& path, const std::str
 bool SourceManager::IsSourceFileExist(const unsigned int id)
 {
     // Check whether the *.macrocall exists or not.
-    if (id < sources.size()) {
+    if (sources.count(id)) {
         auto path = sources.at(id).path;
         if (!path.empty() && FileUtil::GetFileExtension(path) != "cj") {
             return FileUtil::FileExist(path);
@@ -135,19 +135,23 @@ bool SourceManager::IsSourceFileExist(const unsigned int id)
 
 int SourceManager::GetLineEnd(const Position& pos)
 {
-    if (pos.fileID >= sources.size()) {
-        return 0;
-    }
-    auto buffer = sources.at(pos.fileID).buffer;
-    auto sourceSplited = Utils::SplitLines(buffer);
-    if (pos.line > static_cast<int>(sourceSplited.size())) {
-        return 0;
-    }
     CJC_ASSERT(pos.line > 0);
     if (pos.line <= 0) {
         return 0;
     }
-    return static_cast<int>(sourceSplited[static_cast<size_t>(pos.line - 1)].size());
+
+    auto found = sources.find(pos.fileID);
+    if (found == sources.end()) {
+        return 0;
+    }
+
+    auto buffer = found->second.buffer;
+    auto sourceSplitted = Utils::SplitLines(buffer);
+    if (pos.line > static_cast<int>(sourceSplitted.size())) {
+        return 0;
+    }
+
+    return static_cast<int>(sourceSplitted[static_cast<size_t>(pos.line - 1)].size());
 }
 
 std::string SourceManager::GetContentBetween(

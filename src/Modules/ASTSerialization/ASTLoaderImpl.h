@@ -44,7 +44,7 @@ public:
     OwnedPtr<AST::Package> LoadPackageDependencies();
     void LoadPackageDecls();
     // Add for CJMP
-    void PreloadCommonPartOfPackage(AST::Package& pkg);
+    bool PreloadCommonPartOfPackage(AST::Package& pkg);
     std::vector<OwnedPtr<AST::ImportSpec>> LoadImportSpecs(const PackageFormat::Imports* imports);
     std::vector<std::string> ReadFileNames() const;
     std::unordered_set<std::string> LoadCachedTypeForPackage(

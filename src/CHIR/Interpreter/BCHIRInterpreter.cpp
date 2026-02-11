@@ -778,9 +778,9 @@ void BCHIRInterpreter::ReportConstEvalException(Bchir::ByteCodeIndex opIdx, std:
     Cangjie::Position errorPosition = DEFAULT_POSITION;
     auto applyPosition = bchir.GetLinkedByteCode().GetCodePositionAnnotation(opIdx);
     auto fileName = bchir.GetFileName(applyPosition.fileID);
-    auto fileId = diag.GetSourceManager().GetFileID(fileName);
-    if (fileId != -1 && !diag.GetSourceManager().GetSource(static_cast<unsigned int>(fileId)).buffer.empty()) {
-        errorPosition = Cangjie::Position(static_cast<unsigned int>(fileId), static_cast<int>(applyPosition.line),
+    auto fileId = diag.GetSourceManager().TryGetFileID(fileName);
+    if (fileId && !diag.GetSourceManager().GetSource(*fileId).buffer.empty()) {
+        errorPosition = Cangjie::Position(*fileId, static_cast<int>(applyPosition.line),
             static_cast<int>(applyPosition.column));
     }
     auto error = diag.Diagnose(errorPosition, DiagKind::const_eval_exception);
