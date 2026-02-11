@@ -232,42 +232,46 @@ llvm::Value* IRBuilder2::CreateSRetForUnknownSize(const CHIR::Type& returnCHIRTy
 llvm::Value* IRBuilder2::CreateOuterTypeInfo(const CHIRCallExpr& applyWrapper, llvm::Value* thisTypeInfo)
 {
     auto outerCHIRType = applyWrapper.GetOuterType(GetCGContext().GetCHIRBuilder());
-    auto typeInfoPtrType = CGType::GetOrCreateTypeInfoPtrType(cgMod.GetLLVMContext());
+    llvm::PointerType *typeInfoPtrType = CGType::GetOrCreateTypeInfoPtrType(cgMod.GetLLVMContext());
 
-    // Apply
-    if (chirExpr->GetExprKind() == CHIR::ExprKind::APPLY ||
-        chirExpr->GetExprKind() == CHIR::ExprKind::APPLY_WITH_EXCEPTION) {
+    if (this->chirExpr->GetExprKind() == CHIR::ExprKind::APPLY ||
+        this->chirExpr->GetExprKind() == CHIR::ExprKind::APPLY_WITH_EXCEPTION) {
+        // Apply
         return CreateBitCast(CreateTypeInfo(outerCHIRType), typeInfoPtrType);
     }
 
     auto outerCHIRClassType = StaticCast<CHIR::ClassType*>(outerCHIRType);
-    // InvokeStatic
     if (applyWrapper.IsCalleeStatic()) {
+        llvm::Value* typeInfo{nullptr};
+        // InvokeStatic
+        if (DeRef(*applyWrapper.GetThisType())->IsThis()) {
+            typeInfo = thisTypeInfo;
+        } else {
+            typeInfo = CreateBitCast(CreateTypeInfo(applyWrapper.GetThisType()), typeInfoPtrType);
+        }
         if (GetCGContext().GetCGPkgContext().NeedOuterTypeInfo(*outerCHIRClassType)) {
-            auto typeInfo = DeRef(*applyWrapper.GetThisType())->IsThis() ? thisTypeInfo
-                : CreateBitCast(CreateTypeInfo(applyWrapper.GetThisType()), typeInfoPtrType);
-            auto introType = CreateBitCast(CreateTypeInfo(outerCHIRType), typeInfoPtrType);
+            auto introType = CreateBitCast(
+                CreateTypeInfo(outerCHIRType), typeInfoPtrType);
             auto outerType = CallIntrinsicMethodOuterType({typeInfo, introType,
                 getInt64(StaticCast<CHIRInvokeStaticWrapper>(applyWrapper).GetVirtualMethodOffset())});
-            return CreateBitCast(outerType, typeInfoPtrType);
-        } else {
-            return llvm::ConstantPointerNull::get(typeInfoPtrType);
+            typeInfo = CreateBitCast(outerType, typeInfoPtrType);
         }
+        return typeInfo;
     }
 
     // Invoke
+    auto thisVal = **(cgMod | applyWrapper.GetThisParam());
     auto& invokeWrapper = StaticCast<const CHIRInvokeWrapper &>(applyWrapper);
-    if (DeRef(*invokeWrapper.GetObject()->GetType())->IsAutoEnv()) {
-        return GetTypeInfoFromObject(**(cgMod | applyWrapper.GetThisParam()));
-    } else if (GetCGContext().GetCGPkgContext().NeedOuterTypeInfo(*outerCHIRClassType)) {
-        auto typeInfo = GetTypeInfoFromObject(**(cgMod | applyWrapper.GetThisParam()));
-        auto introType = CreateBitCast(CreateTypeInfo(outerCHIRType), typeInfoPtrType);
-        auto outerType = CallIntrinsicMethodOuterType(
-            {typeInfo, introType, getInt64(invokeWrapper.GetVirtualMethodOffset())});
-        return CreateBitCast(outerType, typeInfoPtrType);
-    } else {
-        return llvm::ConstantPointerNull::get(typeInfoPtrType);
+    llvm::Value* typeInfo = GetTypeInfoFromObject(thisVal);
+    if (!DeRef(*invokeWrapper.GetObject()->GetType())->IsAutoEnv() &&
+        GetCGContext().GetCGPkgContext().NeedOuterTypeInfo(*outerCHIRClassType)) {
+        auto introType =
+            CreateBitCast(CreateTypeInfo(outerCHIRType), typeInfoPtrType);
+        auto outerType = CallIntrinsicMethodOuterType({typeInfo, introType,
+            getInt64(invokeWrapper.GetVirtualMethodOffset())});
+        typeInfo = CreateBitCast(outerType, typeInfoPtrType);
     }
+    return typeInfo;
 }
 
 llvm::Value* IRBuilder2::GetReturnValue(const CGFunctionType& calleeType, llvm::CallBase* callBaseInst,
