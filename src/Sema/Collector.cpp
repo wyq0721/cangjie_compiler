@@ -58,6 +58,8 @@ void Collector::AddSymbol(ASTContext& ctx, const NodeInfo& nodeInfo, bool buildT
 
 void Collector::CollectPackageNode(ASTContext& ctx, Package& package, bool buildTrie)
 {
+    // Update position limit for symbol collector to ensure Searcher API works correctly.
+    UpdatePosLimit(package);
     scopeManager.Reset();
     auto nodeInfo = NodeInfo(package, package.fullPackageName, ctx.currentScopeLevel, TOPLEVEL_SCOPE_NAME);
     AddSymbol(ctx, nodeInfo, buildTrie);
