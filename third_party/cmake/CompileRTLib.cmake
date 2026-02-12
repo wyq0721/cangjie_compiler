@@ -6,9 +6,6 @@
 
 # The compile_rtlib compiles libclang_rt-profile.a and libclang_rt-builtins.a for the target platforms.
 function(compile_rtlib target_name)
-    if(NOT DEFINED CANGJIE_THIRD_PARTY_BASE_URL)
-        set(CANGJIE_THIRD_PARTY_BASE_URL "https://gitcode.com")
-    endif()
 
     set(oneValueArgs INSTALL_PREFIX)
     cmake_parse_arguments(

@@ -4,9 +4,6 @@
 #
 # See https://cangjie-lang.cn/pages/LICENSE for license information.
 
-if(NOT DEFINED CANGJIE_THIRD_PARTY_BASE_URL)
-    set(CANGJIE_THIRD_PARTY_BASE_URL "https://gitcode.com")
-endif()
 if(EXISTS ${CANGJIE_CJNATIVE_SOURCE_DIR})
     set(UNICODE_DEPENDENCIES ${CANGJIE_CJNATIVE_SOURCE_DIR})
 else()

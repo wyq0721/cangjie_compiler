@@ -5,9 +5,6 @@
 # See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 include(ExternalProject)
-if(NOT DEFINED CANGJIE_THIRD_PARTY_BASE_URL)
-    set(CANGJIE_THIRD_PARTY_BASE_URL "https://gitcode.com")
-endif()
 
 find_program(SSH_EXECUTABLE ssh)
 # Don't check known_host to get rid of interactive operations in cmake
