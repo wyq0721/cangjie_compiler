@@ -11,7 +11,7 @@
 ### 构建说明
 
 本仓库通过 CMake 作为子目标项目引入，编译过程中会自动完成构建并建立依赖关系，具体构建参数请参见 [CMakeLists.txt](./cmake/CMakeLists.txt) 文件。
-如需替换第三方仓库下载地址，可在 CMake 配置时传入 `-DCANGJIE_THIRD_PARTY_BASE_URL=<mirror>` 指定镜像站点。
+如需替换第三方仓库下载地址，可设置环境变量 `CANGJIE_THIRD_PARTY_BASE_URL`，或在 CMake 配置时传入 `-DCANGJIE_THIRD_PARTY_BASE_URL=<mirror>` 指定镜像站点。
 
 ## flatbuffers
 
