@@ -198,17 +198,6 @@ std::vector<ExtendDef*> Package::GetExtends() const
     return extends;
 }
 
-std::optional<ExtendDef*> Package::TryGetExtend(const std::string identifier)
-{
-    for (auto e : extends) {
-        if (e->GetIdentifier()== identifier) {
-            return e;
-        }
-    }
-
-    return std::nullopt;
-}
-
 void Package::AddExtend(ExtendDef* item)
 {
     extends.emplace_back(item);
