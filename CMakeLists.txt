@@ -57,6 +57,7 @@ option(CANGJIE_WRITE_PROFILE "`--profile-compile-time` and `--profile-compile-me
 option(CANGJIE_ENABLE_ASAN_COV "build with asan and sanitize-coverage, used for cjc_fuzz and lsp_test" OFF)
 option(CANGJIE_VISIBLE_OPTIONS_ONLY "open CANGJIE_VISIBLE_OPTIONS_ONLY to only build options that are visible to users" ON)
 option(CANGJIE_USE_OH_LLVM_REPO "use OpenHarmony llvm repo with Cangjie llvm patch instead of cangjie llvm repo for building" OFF)
+set(CANGJIE_THIRD_PARTY_BASE_URL "https://gitcode.com" CACHE STRING "Base URL for third-party repositories")
 set(CANGJIE_LLVM_BUILD_TYPE Default CACHE STRING "Build type for llvm")
 set(CANGJIE_CJDB_BUILD_TYPE Default CACHE STRING "Build type for cjdb")
 
@@ -82,7 +83,7 @@ if(NOT DEFINED CANGJIE_XML2_SOURCE_DIR)
     set(CANGJIE_XML2_SOURCE_DIR ${CMAKE_SOURCE_DIR}/third_party/libxml2-2.14.0)
 endif()
 if(NOT EXISTS ${BOUNDSCHECK})
-    set(REPOSITORY_PATH https://gitcode.com/openharmony/third_party_bounds_checking_function.git)
+    set(REPOSITORY_PATH ${CANGJIE_THIRD_PARTY_BASE_URL}/openharmony/third_party_bounds_checking_function.git)
     message(STATUS "Set boundscheck REPOSITORY_PATH: ${REPOSITORY_PATH}")
     execute_process(
         COMMAND git clone --branch OpenHarmony-v6.0-Release ${REPOSITORY_PATH} ${BOUNDSCHECK}

@@ -5,6 +5,9 @@
 # See https://cangjie-lang.cn/pages/LICENSE for license information.
 
 include(ExternalProject)
+if(NOT DEFINED CANGJIE_THIRD_PARTY_BASE_URL)
+    set(CANGJIE_THIRD_PARTY_BASE_URL "https://gitcode.com")
+endif()
 
 find_program(SSH_EXECUTABLE ssh)
 # Don't check known_host to get rid of interactive operations in cmake
@@ -152,10 +155,10 @@ if(CANGJIE_CODEGEN_CJNATIVE_BACKEND) # i.e. "--compile-backend" option
     include(CompileRTLib)
 
     if(CANGJIE_USE_OH_LLVM_REPO)
-        set(REPOSITORY_PATH "https://gitcode.com/openharmony/third_party_llvm-project.git")
+        set(REPOSITORY_PATH "${CANGJIE_THIRD_PARTY_BASE_URL}/openharmony/third_party_llvm-project.git")
         set(LLVM_TAG master)
     else()
-        set(REPOSITORY_PATH "https://gitcode.com/Cangjie/llvm-project.git")
+        set(REPOSITORY_PATH "${CANGJIE_THIRD_PARTY_BASE_URL}/Cangjie/llvm-project.git")
         set(LLVM_TAG main)
     endif()
     # llvm

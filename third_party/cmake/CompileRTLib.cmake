@@ -6,6 +6,9 @@
 
 # The compile_rtlib compiles libclang_rt-profile.a and libclang_rt-builtins.a for the target platforms.
 function(compile_rtlib target_name)
+    if(NOT DEFINED CANGJIE_THIRD_PARTY_BASE_URL)
+        set(CANGJIE_THIRD_PARTY_BASE_URL "https://gitcode.com")
+    endif()
 
     set(oneValueArgs INSTALL_PREFIX)
     cmake_parse_arguments(
@@ -137,10 +140,10 @@ function(compile_rtlib target_name)
             CMAKE_ARGS ${LLVM_CMAKE_ARGS})
     else()
         if(CANGJIE_USE_OH_LLVM_REPO)
-            set(REPOSITORY_PATH "https://gitcode.com/openharmony/third_party_llvm-project.git")
+            set(REPOSITORY_PATH "${CANGJIE_THIRD_PARTY_BASE_URL}/openharmony/third_party_llvm-project.git")
             set(LLVM_TAG master)
         else()
-            set(REPOSITORY_PATH "https://gitcode.com/Cangjie/llvm-project.git")
+            set(REPOSITORY_PATH "${CANGJIE_THIRD_PARTY_BASE_URL}/Cangjie/llvm-project.git")
             set(LLVM_TAG dev)
         endif()
         set(LLVM_REPO_DOWNLOAD_ARGS
