@@ -172,7 +172,6 @@ void Gnu::GenerateArchiveTool(const std::vector<TempFileInfo>& objFiles)
         tool->AppendArg(objFile.filePath);
     }
 
-    // 当 cjc foo.o test.o objFiles为空，但是
     if (objFiles.empty()) {
         for (const auto& inputObj : driverOptions.inputObjs) {
             tool->AppendArg(inputObj);

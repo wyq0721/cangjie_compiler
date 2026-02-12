@@ -52,11 +52,13 @@ std::string GetSystemErrorMessage(int error)
     char buf[buffSize] = {0};
     auto handleError = [&buf](auto res) -> std::string {
         using T = decltype(res);
-        if constexpr (std::is_same_v<T, char*>) {
-            return res ? std::string(res) : "";
+
+        if constexpr (std::is_integral_v<T>) {
+            // POSIX
+            return res != 0 ? "" : std::string(buf);
         } else {
-            if (res != 0) return "";
-            return std::string(buf);
+            // GNU
+            return res ? std::string(res) : "";
         }
     };
     // Generic lambda defers semantic checks until instantiation.
