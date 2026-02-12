@@ -171,6 +171,13 @@ void Gnu::GenerateArchiveTool(const std::vector<TempFileInfo>& objFiles)
     for (const auto& objFile : objFiles) {
         tool->AppendArg(objFile.filePath);
     }
+
+    // 当 cjc foo.o test.o objFiles为空，但是
+    if (objFiles.empty()) {
+        for (const auto& inputObj : driverOptions.inputObjs) {
+            tool->AppendArg(inputObj);
+        }
+    }
     backendCmds.emplace_back(MakeSingleToolBatch({std::move(tool)}));
 }
 
