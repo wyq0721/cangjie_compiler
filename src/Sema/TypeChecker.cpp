@@ -2088,8 +2088,6 @@ void TypeChecker::TypeCheckerImpl::PrepareTypeCheck(ASTContext& ctx, Package& pk
 
     // Phase: build symbol table.
     Collector collector(scopeManager, ci->invocation.globalOptions.enableMacroInLSP);
-    // Update position limit for symbol collector to ensure Searcher API works correctly.
-    collector.UpdatePosLimit(pkg);
     collector.BuildSymbolTable(ctx, &pkg, ci->buildTrie);
     // Phase: mark outermost binary expressions.
     MarkOutermostBinaryExpressions(pkg);
