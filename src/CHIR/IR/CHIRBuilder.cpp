@@ -251,22 +251,14 @@ EnumDef* CHIRBuilder::CreateEnum(const DebugLocation& loc, const std::string& sr
 ExtendDef* CHIRBuilder::CreateExtend(const DebugLocation& loc, const std::string& mangledName,
     const std::string& pkgName, bool isImported, const std::vector<GenericType*> genericParams)
 {
-    auto identifier = "@" + mangledName;
-    ExtendDef* ret = nullptr;
+    ExtendDef* ret = new ExtendDef("@" + mangledName, pkgName, genericParams);
+    this->allocatedExtends.emplace_back(ret);
     if (context.GetCurPackage() != nullptr) {
-        if (auto exist = context.GetCurPackage()->TryGetExtend(identifier)) {
-            ret = *exist;
-            // already existed function more specific, so no need to update
-            ret->EnableAttr(Attribute::PREVIOUSLY_DESERIALIZED);
+        if (isImported) {
+            context.GetCurPackage()->AddImportedExtend(ret);
+            ret->EnableAttr(Attribute::IMPORTED);
         } else {
-            ret = new ExtendDef(identifier, pkgName, genericParams);
-            if (isImported) {
-                context.GetCurPackage()->AddImportedExtend(ret);
-                ret->EnableAttr(Attribute::IMPORTED);
-            } else {
-                context.GetCurPackage()->AddExtend(ret);
-                this->allocatedExtends.emplace_back(ret);
-            }
+            context.GetCurPackage()->AddExtend(ret);
         }
     }
     ret->SetDebugLocation(loc);

@@ -108,7 +108,6 @@ public:
     // ===--------------------------------------------------------------------===//
     // ExtendDef API
     // ===--------------------------------------------------------------------===//
-    std::optional<ExtendDef*> TryGetExtend(const std::string identifier);
     void AddExtend(ExtendDef* item);
     std::vector<ExtendDef*> GetExtends() const;
     void SetExtends(std::vector<ExtendDef*>&& items);
