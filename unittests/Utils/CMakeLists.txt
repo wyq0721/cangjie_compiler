@@ -61,4 +61,13 @@ if(CMAKE_BUILD_TYPE MATCHES Release)
     target_link_libraries(SignalTestCJC ${LINK_LIBS})
 endif()
 
+add_executable(ICEUtilTests ICEUtilTests.cpp)
+target_link_libraries(
+    ICEUtilTests
+    ${CMAKE_DL_LIBS}
+    ${BASE_UTIL_SRC}
+    GTest::gtest
+    GTest::gtest_main)
+add_test(NAME ICEUtilTests COMMAND ICEUtilTests)
+
 add_subdirectory(UnicodeTest)
