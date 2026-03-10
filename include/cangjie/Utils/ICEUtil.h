@@ -24,13 +24,14 @@ enum class CompileStage;
 namespace ICE {
 const int EXIT_CODE = 2; // Internal compiler error
 const std::string MSG_PART_ONE = ANSI_COLOR_RED + "Internal Compiler Error: " + ANSI_COLOR_RESET;
-const std::string MSG_PART_TWO = "\nPlease report this to Cangjie team and include the project. Error Code: ";
+const std::string MSG_PART_TWO = "\nPlease report this to Cangjie team and include the project. Error occurred at stage: ";
 constexpr int64_t FRONTEND_TP = -1;
 constexpr int64_t UNITTEST_TP = -2;
 constexpr int64_t LSP_TP = -3;
 void PrintVersionFromError();
 void RemoveTempFile();
 int64_t GetTriggerPoint();
+const char* GetTriggerPointName(int64_t tp);
 
 class TriggerPointSetter {
 public:
@@ -71,7 +72,7 @@ template <typename... Args> inline void InternalError(Args&&... args)
         std::cerr << ICE::MSG_PART_ONE;
         ((std::cerr << args), ...);
         int64_t tp = ICE::GetTriggerPoint();
-        std::cerr << ICE::MSG_PART_TWO << std::to_string(tp) << std::endl;
+        std::cerr << ICE::MSG_PART_TWO << ICE::GetTriggerPointName(tp) << std::endl;
         // When ut and lsp cases are compiled, do not exit after ICE,
         // because some ut cases are designed to go to the wrong branch.
         if (tp == ICE::LSP_TP || tp == ICE::UNITTEST_TP) {

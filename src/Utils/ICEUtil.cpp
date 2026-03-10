@@ -58,6 +58,61 @@ int64_t GetTriggerPoint()
     return TriggerPointSetter::triggerPoint;
 }
 
+const char* GetTriggerPointName(int64_t tp)
+{
+    if (tp == UNITTEST_TP) {
+        return "Unit Test Runner";
+    }
+    if (tp == LSP_TP) {
+        return "Language Server";
+    }
+    if (tp == TriggerPointSetter::interpreterTP) {
+        return "Interpreter";
+    }
+    if (tp == TriggerPointSetter::writeCahedTP) {
+        return "Write Cache";
+    }
+    if (tp >= static_cast<int64_t>(CompileStage::COMPILE_STAGE_NUMBER)) {
+        return "Frontend";
+    }
+    switch (static_cast<CompileStage>(tp)) {
+#ifdef CANGJIE_CODEGEN_CJNATIVE_BACKEND
+        case CompileStage::LOAD_PLUGINS:
+            return "Plugin Loading";
+#endif
+        case CompileStage::PARSE:
+            return "Parsing";
+        case CompileStage::CONDITION_COMPILE:
+            return "Conditional Compilation";
+        case CompileStage::IMPORT_PACKAGE:
+            return "Package Import";
+        case CompileStage::MACRO_EXPAND:
+            return "Macro Expansion";
+        case CompileStage::AST_DIFF:
+            return "AST Diff";
+        case CompileStage::SEMA:
+            return "Semantic Analysis";
+        case CompileStage::DESUGAR_AFTER_SEMA:
+            return "Desugar After Sema";
+        case CompileStage::GENERIC_INSTANTIATION:
+            return "Generic Instantiation";
+        case CompileStage::OVERFLOW_STRATEGY:
+            return "Overflow Strategy";
+        case CompileStage::MANGLING:
+            return "Mangling";
+        case CompileStage::SAVE_CJO:
+            return "Save CJO";
+        case CompileStage::CHIR:
+            return "CHIR";
+        case CompileStage::CODEGEN:
+            return "Code Generation";
+        case CompileStage::SAVE_RESULTS:
+            return "Save Results";
+        default:
+            return "Unknown Stage";
+    }
+}
+
 bool CanWriteOnceICEMessage()
 {
     return !g_writeOnceICEMessag.exchange(true);

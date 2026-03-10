@@ -95,7 +95,8 @@ std::string GetSignalString(std::string& signalValue, std::string& module)
     }
     std::string result1 = Cangjie::ICE::MSG_PART_ONE + Cangjie::SIGNAL_MSG_PART_ONE;
     std::string result2 =
-        Cangjie::SIGNAL_MSG_PART_TWO + Cangjie::ICE::MSG_PART_TWO + std::to_string(moduleStr->second) + "\n";
+        Cangjie::SIGNAL_MSG_PART_TWO + Cangjie::ICE::MSG_PART_TWO +
+        Cangjie::ICE::GetTriggerPointName(moduleStr->second) + "\n";
     if (signalValue == "StackOverflow") {
 #ifdef __unix__
         return CANGJIE_COMPILER_VERSION + "\n" + result1 + std::to_string(SIGSEGV) + result2;

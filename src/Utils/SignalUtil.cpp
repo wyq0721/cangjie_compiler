@@ -100,7 +100,7 @@ void Signal::WriteICEMessage(int64_t errorCode)
     (void)AsyncSigSafePut(errorCode);
     (void)AsyncSigSafeWriteToError(Cangjie::SIGNAL_MSG_PART_TWO.c_str());
     (void)AsyncSigSafeWriteToError(Cangjie::ICE::MSG_PART_TWO.c_str());
-    (void)AsyncSigSafePut(Cangjie::ICE::GetTriggerPoint());
+    (void)AsyncSigSafeWriteToError(Cangjie::ICE::GetTriggerPointName(Cangjie::ICE::GetTriggerPoint()));
     (void)AsyncSigSafeWriteToError("\n");
 #ifdef CANGJIE_BUILD_TESTS
     CloseTempFileHandle();
