@@ -60,21 +60,31 @@ int64_t GetTriggerPoint()
 
 const char* GetTriggerPointName(int64_t tp)
 {
+    // The following special trigger points are not part of the CompileStage enum.
+    // They represent execution contexts outside the normal frontend compilation pipeline
+    // that also set a trigger point for ICE reporting purposes.
+    // UNITTEST_TP: set when running unit tests; ICE should not exit in this mode.
     if (tp == UNITTEST_TP) {
         return "Unit Test Runner";
     }
+    // LSP_TP: set when running in language-server (LSP) mode; ICE should not exit in this mode.
     if (tp == LSP_TP) {
         return "Language Server";
     }
+    // interpreterTP: set during interpreter execution (value = COMPILE_STAGE_NUMBER + 1).
     if (tp == TriggerPointSetter::interpreterTP) {
         return "Interpreter";
     }
+    // writeCahedTP: set while writing cached compilation results (value = COMPILE_STAGE_NUMBER + 2).
     if (tp == TriggerPointSetter::writeCahedTP) {
         return "Write Cache";
     }
+    // Any value >= COMPILE_STAGE_NUMBER that is not one of the special points above
+    // means the trigger point was reset to the default (frontend/driver) context.
     if (tp >= static_cast<int64_t>(CompileStage::COMPILE_STAGE_NUMBER)) {
         return "Frontend";
     }
+    // Map standard CompileStage enum values to human-readable names.
     switch (static_cast<CompileStage>(tp)) {
 #ifdef CANGJIE_CODEGEN_CJNATIVE_BACKEND
         case CompileStage::LOAD_PLUGINS:
