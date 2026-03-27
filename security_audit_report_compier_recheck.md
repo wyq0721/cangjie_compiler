@@ -1,577 +1,252 @@
-# 仓颉编译器安全审计复核报告（Recheck）
+# 仓颉编译器安全审计复核报告
 
-**审计时间**：2026-03-27  
-**复核依据**：`security_audit_report_compiler.md`（原始报告，15 项漏洞）  
-**复核方式**：逐项对照实际源码进行裁决，仅保留经代码确认的真实问题  
-**复核结果**：11 项确认 ✅，4 项驳回 ❌
+> **复核基准**：`security_audit_report_compiler.md`（初始报告，15 项发现）  
+> **复核标准**：攻击手段须具备实际可行性——需存在现实攻击路径，而非仅存在理论风险  
+> **复核结果**：**8 项确认** ✅，**7 项驳回** ❌
 
 ---
 
 ## 裁决总览
 
-| 编号 | 原始标题 | 裁决 | 理由摘要 |
-|------|----------|------|----------|
-| VULN-01 | FlatBuffers CHIR 反序列化无深度限制 | ✅ **确认** | 代码中显式注释"禁用"限制，有据可查 |
-| VULN-02 | execvp PATH 劫持（宏服务器） | ✅ **确认** | `execvp("LSPMacroServer", ...)` 确认依赖 PATH |
-| VULN-03 | RTLD_GLOBAL 宏库符号污染 | ✅ **确认** | 宏用户库使用默认 `RTLD_LAZY\|RTLD_GLOBAL` 确认 |
-| VULN-04 | CANGJIE_HOME 环境变量无条件信任 | ✅ **确认** | 直接用于构建可执行文件搜索路径，无验证 |
-| VULN-05 | NDEBUG 下 CJC_ASSERT 消除 | ✅ **确认** | 宏定义确认，含 3716+ 处空指针安全检查 |
-| VULN-06 | RawStaticCast 绕过类型检查 | ❌ **驳回** | 使用前均有 switch/astKind 类型断言，不是漏洞 |
-| VULN-07 | 临时目录名可预测 | ✅ **确认** | 时间戳+32-bit 随机数，未用 mkdtemp |
-| VULN-08 | Windows CreateProcess 命令注入 | ❌ **驳回** | CreateProcessA 不经 cmd.exe，% ! ^ 不展开 |
-| VULN-09 | 信号处理函数调用非异步安全函数 | ✅ **确认** | SigintHandler→DeleteTempFiles(false)→opendir/readdir |
-| VULN-10 | 手工 JSON 解析器缺陷 | ❌ **驳回** | 解析开发者自有配置文件，无内存安全风险 |
-| VULN-11 | ICE/断言消息泄露构建路径 | ❌ **驳回** | NDEBUG 下 `__FILE__` 输出完全消除，不适用 |
-| VULN-12 | IntLiteral 移位未定义行为 | ✅ **确认** | 移位量无上界检查，C++ UB 确认 |
-| VULN-13 | RemoveDirRecursively TOCTOU | ✅ **确认** | readdir→unlink 之间存在竞态窗口 |
-| VULN-14 | 插件加载无完整性验证 | ✅ **确认** | `PerformPluginLoad()` 无签名/路径白名单 |
-| VULN-15 | Demangler 无递归深度限制 | ✅ **确认** | DemangleNextUnit 循环调用，无深度计数器 |
+| 编号 | 原始严重级别 | 裁决 | 驳回理由概述 |
+|------|------------|------|------------|
+| VULN-01 | 高 | ✅ **确认** | — |
+| VULN-02 | 高 | ✅ **确认** | — |
+| VULN-03 | 高 | ✅ **确认** | — |
+| VULN-04 | 中 | ✅ **确认** | — |
+| VULN-05 | 中 | ❌ **驳回** | 编译器是开发者工具，非安全边界；无外部攻击者可利用路径 |
+| VULN-06 | 中 | ❌ **驳回** | 所有调用点均在 `switch(astKind)` 保护下，不存在类型混淆路径 |
+| VULN-07 | 低 | ❌ **驳回** | `/tmp` 目录竞争需要同机本地攻击者、精确时序窗口，实际利用极难 |
+| VULN-08 | 中 | ❌ **驳回** | `CreateProcessA` 不经 `cmd.exe`，特殊字符不会展开 |
+| VULN-09 | 低 | ❌ **驳回** | 仅在 Ctrl+C 时触发，编译器短生命周期进程中死锁概率极低 |
+| VULN-10 | 低 | ❌ **驳回** | JSON 解析器仅处理开发者自有配置文件，不接受外部输入 |
+| VULN-11 | 低 | ❌ **驳回** | `__FILE__` 在生产构建（NDEBUG）下完全消除 |
+| VULN-12 | 低 | ✅ **确认** | — |
+| VULN-13 | 低 | ✅ **确认** | — |
+| VULN-14 | 中 | ✅ **确认** | — |
+| VULN-15 | 中 | ✅ **确认** | — |
 
 ---
 
-## 驳回说明
+## 已确认问题列表（按源码目录分类）
 
-### ❌ VULN-06（RawStaticCast 绕过类型检查）—— 驳回
+### 📂 `src/CHIR/Serializer/`
 
-**驳回理由**：  
-原报告将 `RawStaticCast` 定性为"绕过类型检查"。但经逐一核查实际调用位置，该函数在所有关键路径上的使用均是**在已完成 `switch(astKind)` 或其他确定性类型判断之后**进行的。
+#### VULN-01：FlatBuffers 反序列化器禁用深度与表数量限制（高）
 
-以报告重点引用的 `Node::GetTargets()`（`src/AST/Node.cpp:718`）为例：
+- **源码位置**：[`src/CHIR/Serializer/CHIRDeserializer.cpp` 第 56–58 行](https://github.com/wyq0721/cangjie_compiler/blob/main/src/CHIR/Serializer/CHIRDeserializer.cpp#L56-L58)
 
 ```cpp
-std::vector<Ptr<Decl>> Node::GetTargets() const
-{
-    switch (astKind) {              // ← 先通过 astKind 确定类型
-        case ASTKind::REF_TYPE: {
-            return RawStaticCast<const RefType*>(this)->ref.targets;   // 已知类型安全
-        }
-        case ASTKind::REF_EXPR: {
-            return RawStaticCast<const RefExpr*>(this)->ref.targets;   // 已知类型安全
-        }
-        ...
-        default:
-            return {};
-    }
-}
-```
-
-`RawStaticCast` 在此处等同于 LLVM 的 `cast<>` 模式——类型已由 `switch` 保证，强制转换是明确安全的。不存在攻击者可利用的、绕过类型断言的代码路径。
-
----
-
-### ❌ VULN-08（Windows CreateProcess 命令注入）—— 驳回
-
-**驳回理由**：  
-原报告声称 `%COMSPEC%`、`!var!`、`^char^` 等字符可造成命令注入。但 **`CreateProcessA` 不经由 `cmd.exe` 执行**，以上字符均是 `cmd.exe` 专用扩展语法，在直接 `CreateProcessA` 调用中不会被展开或解释。
-
-代码实际调用方式（`src/Driver/Tool.cpp:139`）：
-
-```cpp
-CreateProcessA(
-    name.c_str(),                           // lpApplicationName：直接指定可执行文件
-    const_cast<char*>(commandLine.c_str()), // lpCommandLine：参数字符串
-    nullptr, nullptr, FALSE, 0, nullptr, nullptr, &si, &pi)
-```
-
-- `lpApplicationName` 不经 shell 解析；
-- `lpCommandLine` 中的 `%`、`!`、`^` 由目标进程的 CRT 层（`argv` 解析）处理，不会触发 shell 扩展。
-
-现有的 `std::quoted` 处理已足够应对参数中的双引号，该问题不构成命令注入漏洞。
-
----
-
-### ❌ VULN-10（手工 JSON 解析器缺陷）—— 驳回
-
-**驳回理由**：  
-该 JSON 解析器仅用于解析由开发者通过 `--passed-when syscap=<path>` 选项显式指定的 syscap 配置文件，属于开发者自有的构建配置，**不属于攻击者可控的外部输入**。
-
-此外，解析器逐字节读入 `std::stringstream`，即便遇到格式错误也只产生错误的解析结果（返回空字符串或 0），**不会造成内存越界或堆溢出**。问题属于代码健壮性不足，不属于安全漏洞。
-
----
-
-### ❌ VULN-11（ICE 消息泄露构建路径）—— 驳回
-
-**驳回理由**：  
-原报告引用 `CJC_ASSERT_WITH_MSG` 中的 `fprintf(stderr, "... %s:%d ...", __FILE__, __LINE__)` 作为路径泄露证据。但经查阅 `include/cangjie/Utils/CheckUtils.h` 完整宏定义：
-
-```cpp
-#ifdef CMAKE_ENABLE_ASSERT
-    // ... 含 __FILE__ 的 fprintf 输出 ...
-#else
-#ifdef NDEBUG
-    #define CJC_ASSERT_WITH_MSG(f, msg) (static_cast<void>(f), static_cast<void>(msg))  // 完全消除
-#else
-    // ... 含 __FILE__ 的 fprintf 输出（调试构建）...
-#endif
-#endif
-```
-
-在生产发布构建（`NDEBUG`）中，含 `__FILE__` 的 `fprintf` 完全消除，不产生任何输出。
-
-`InternalError()`（`ICEUtil.h`）在生产构建中只输出 `CANGJIE_COMPILER_VERSION` 字符串和一个内部编号整数，**不包含文件系统路径**。
-
-在调试/`CMAKE_ENABLE_ASSERT` 构建中输出 `__FILE__` 是开发构建的预期行为，不视为安全缺陷。
-
----
-
-## 已确认漏洞详情
-
----
-
-### VULN-01：FlatBuffers CHIR 反序列化禁用深度/表数量限制
-
-**严重程度**：🔴 高危  
-**CWE**：CWE-770（Resource Allocation Without Limits）
-
-#### 漏洞代码
-
-**文件**：`src/CHIR/Serializer/CHIRDeserializer.cpp`，第 55–60 行
-
-```cpp
-// Disable max depth and max tables verification.
 flatbuffers::Verifier::Options options;
 options.max_depth = std::numeric_limits<::flatbuffers::uoffset_t>::max();
 options.max_tables = std::numeric_limits<::flatbuffers::uoffset_t>::max();
-flatbuffers::Verifier verifier(serializationInfo.data(), serializationInfo.size(), options);
-if (!verifier.VerifyBuffer<PackageFormat::CHIRPackage>()) { ... }
 ```
 
-**注**：AST 序列化路径（`ASTLoader.cpp:217`）设有合理限制 `FB_MAX_DEPTH=128`，两者形成鲜明对比。
-
-#### 攻击路径
-
-攻击者构造深度极大的 `.chir` 文件 → 通过 `cjc --import-chir` 或篡改增量编译缓存 → 触发反序列化 → OOM 或深度递归栈溢出（DoS）。
-
-#### 根本原因
-
-代码注释明确表明"已禁用"此限制，用于兼容大型项目。无深度上界等同于对恶意构造输入没有防御。
-
-#### 修复建议
-
-```cpp
-flatbuffers::Verifier::Options options;
-options.max_depth = 4096;         // 足够覆盖实际最大 CHIR 嵌套
-options.max_tables = 10000000;    // 10M 条目上限
-flatbuffers::Verifier verifier(serializationInfo.data(), serializationInfo.size(), options);
-```
+- **攻击可行性**：✅ **可行**。攻击者构造恶意 `.chir` 文件并通过 `--import-chir` 参数传入编译器或替换增量编译缓存文件。FlatBuffers 验证器的深度和表数量限制被设置为 `uint32_t::max()`，完全失去对嵌套深度和表数量的保护。恶意文件可触发深度递归导致栈溢出，或构造超大表数量导致堆内存耗尽（DoS）。
+- **CWE**：CWE-770（无限制资源分配）
 
 ---
 
-### VULN-02：宏服务器通过 execvp 依赖 PATH 查找（路径劫持）
+### 📂 `src/Macro/`
 
-**严重程度**：🔴 高危  
-**CWE**：CWE-426（Untrusted Search Path）
+#### VULN-02：宏服务器通过 `execvp` 依赖 PATH 查找启动（高）
 
-#### 漏洞代码
-
-**文件**：`src/Macro/MacroEvaluationClient.cpp`，第 497–509 行
+- **源码位置**：[`src/Macro/MacroEvaluationClient.cpp` 第 37 行](https://github.com/wyq0721/cangjie_compiler/blob/main/src/Macro/MacroEvaluationClient.cpp#L37)（常量定义），[第 497–509 行](https://github.com/wyq0721/cangjie_compiler/blob/main/src/Macro/MacroEvaluationClient.cpp#L497-L509)（execvp 调用）
 
 ```cpp
-std::string macSrvName = MACRO_SRV_NAME;  // = "LSPMacroServer"（硬编码程序名）
+const std::string MACRO_SRV_NAME = "LSPMacroServer";
 // ...
-cstrings.push_back(macSrvName.data());
-cstrings.push_back(ci->invocation.globalOptions.executablePath.data());  // 路径作为参数传递
-cstrings.push_back(nullptr);
-execvp(macSrvName.c_str(), cstrings.data());  // 依赖 PATH 查找，存在劫持风险
+execvp(macSrvName.c_str(), cstrings.data());
 ```
 
-注意：`executablePath`（编译器自身路径）已作为**参数**传递给宏服务器，但未用于**确定宏服务器位置**。
+- **攻击可行性**：✅ **可行**。`execvp` 按 `PATH` 环境变量搜索可执行文件。攻击者只需在编译器工作目录下（或 `PATH` 靠前路径中）放置一个名为 `LSPMacroServer` 的恶意程序，当用户编译含宏的仓颉源码时，编译器将执行恶意程序而非真正的宏服务器。该攻击对于有写权限的共享构建环境尤其有效。编译器已持有 `executablePath`（自身路径），但未利用该信息推导宏服务器的绝对路径。
+- **CWE**：CWE-426（不受信任的搜索路径）
 
-#### 攻击路径
+#### VULN-03：宏 `.so` 库使用 `RTLD_GLOBAL` 加载（高）
 
-攻击者在 `PATH` 前缀目录（如 `./`）放置同名恶意程序 `LSPMacroServer` → 用户在该目录运行 `cjc` 编译含宏源码 → `execvp` 找到并执行恶意程序 → 任意代码执行。
-
-#### 修复建议
-
-```cpp
-// 使用编译器自身路径派生宏服务器绝对路径
-std::string execDir = FileUtil::GetDirPath(ci->invocation.globalOptions.executablePath);
-std::string macSrvAbsPath = FileUtil::JoinPath(execDir, MACRO_SRV_NAME);
-if (!FileUtil::CanExecute(macSrvAbsPath)) {
-    Errorln("Macro server not found: ", macSrvAbsPath);
-    return;
-}
-cstrings[0] = macSrvAbsPath.data();
-execv(macSrvAbsPath.c_str(), cstrings.data());  // 使用 execv，不依赖 PATH
-```
-
----
-
-### VULN-03：宏用户库默认使用 RTLD_GLOBAL 加载（符号污染）
-
-**严重程度**：🔴 高危  
-**CWE**：CWE-426（Untrusted Search Path）、CWE-114（Process Control）
-
-#### 漏洞代码
-
-**文件**：`include/cangjie/Macro/InvokeUtil.h`，第 80 行
+- **源码位置**：[`include/cangjie/Macro/InvokeUtil.h` 第 80 行](https://github.com/wyq0721/cangjie_compiler/blob/main/include/cangjie/Macro/InvokeUtil.h#L80)（默认参数定义），[`src/Macro/MacroEvaluationCJNative.cpp` 第 101 行](https://github.com/wyq0721/cangjie_compiler/blob/main/src/Macro/MacroEvaluationCJNative.cpp#L101)、[`src/Macro/MacroCallResolve.cpp` 第 199 行](https://github.com/wyq0721/cangjie_compiler/blob/main/src/Macro/MacroCallResolve.cpp#L199)、[`src/Macro/MacroEvaluationSrv.cpp` 第 186 行](https://github.com/wyq0721/cangjie_compiler/blob/main/src/Macro/MacroEvaluationSrv.cpp#L186)（调用点）
 
 ```cpp
-// Linux/macOS 平台的默认参数
+// 头文件默认参数
 HANDLE OpenSymbolTable(const std::string& libPath, int dlopenMode = RTLD_LAZY | RTLD_GLOBAL);
+
+// 调用（均使用默认参数）
+auto handle = InvokeRuntime::OpenSymbolTable(dyfile);
 ```
 
-**实际调用**（`src/Macro/MacroEvaluationCJNative.cpp:101`、`src/Macro/MacroCallResolve.cpp:199`）：
-
-```cpp
-auto handle = InvokeRuntime::OpenSymbolTable(dyfile);  // 使用默认 RTLD_GLOBAL
-```
-
-**对比**：插件加载已安全处理（`src/Frontend/CompilerInstance.cpp`）：
-
-```cpp
-handle = InvokeRuntime::OpenSymbolTable(path, RTLD_NOW | RTLD_LOCAL);  // 安全
-```
-
-**说明**：运行时库（`InvokeUtil.cpp:88`）使用 `RTLD_GLOBAL` 是**有意设计**（宏库需要找到运行时符号），这部分合理。问题在于**宏用户库**也继承了 `RTLD_GLOBAL` 默认值。
-
-#### 攻击路径
-
-恶意宏库导出与编译器运行时同名符号（如 `malloc`、`free`、`pthread_create`）→ 以 `RTLD_GLOBAL` 加载后覆盖全局符号表 → 后续运行时调用命中恶意实现 → 内存管理劫持或信息泄漏。
-
-#### 修复建议
-
-```cpp
-// 宏用户库使用 RTLD_LOCAL，并添加 RTLD_DEEPBIND 进一步隔离
-auto handle = InvokeRuntime::OpenSymbolTable(dyfile, RTLD_NOW | RTLD_LOCAL | RTLD_DEEPBIND);
-```
+- **攻击可行性**：✅ **可行**。使用 `--macro-lib` 选项加载的宏库以 `RTLD_GLOBAL` 打开，导致宏库导出的全部符号进入编译器全局符号命名空间。恶意宏库可定义与标准库同名的函数（如 `malloc`、`free`、`memcpy`），在后续编译流程中劫持编译器自身的函数调用。此攻击在 CI/CD 环境中尤其危险——攻击者可通过提交含恶意宏库的代码仓库，在构建服务器上劫持编译器进程。
+- **CWE**：CWE-114（进程控制）
 
 ---
 
-### VULN-04：CANGJIE_HOME 环境变量被无条件信任用于可执行文件查找
+### 📂 `src/Driver/` + `src/Option/`
 
-**严重程度**：🟠 中危  
-**CWE**：CWE-426（Untrusted Search Path）
+#### VULN-04：`CANGJIE_HOME` 环境变量无条件信任（中）
 
-#### 漏洞代码
-
-**文件**：`src/Option/Option.cpp`，第 1173–1174 行
+- **源码位置**：[`src/Option/Option.cpp` 第 1173–1174 行](https://github.com/wyq0721/cangjie_compiler/blob/main/src/Option/Option.cpp#L1173-L1174)（读取环境变量），[`src/Driver/Backend/CJNATIVEBackend.cpp` 第 75–81 行](https://github.com/wyq0721/cangjie_compiler/blob/main/src/Driver/Backend/CJNATIVEBackend.cpp#L75-L81)（构建搜索路径），[`src/Driver/Toolchains/ToolChain.cpp` 第 361 行](https://github.com/wyq0721/cangjie_compiler/blob/main/src/Driver/Toolchains/ToolChain.cpp#L361)（查找 LLVM 工具链）
 
 ```cpp
-if (environmentVars.find(CANGJIE_HOME) != environmentVars.end()) {
-    environment.cangjieHome = FileUtil::GetAbsPath(environmentVars.at(CANGJIE_HOME));
-}
+// Option.cpp
+environment.cangjieHome = FileUtil::GetAbsPath(environmentVars.at(CANGJIE_HOME));
+
+// CJNATIVEBackend.cpp
+cjnativeBinSearchPaths.emplace_back(
+    FileUtil::JoinPath(driverOptions.environment.cangjieHome.value(), "third_party/llvm/bin"));
 ```
 
-**文件**：`src/Driver/Backend/CJNATIVEBackend.cpp`，第 76–84 行
+- **攻击可行性**：✅ **可行**。攻击者控制 `CANGJIE_HOME` 环境变量后，编译器将从攻击者指定的路径查找 `opt`、`llc` 等后端工具和链接器。在共享构建环境中（如 CI 服务器、Docker 容器），攻击者可设置环境变量指向含恶意工具的目录，从而在编译输出中注入后门代码。编译器有基于 `executablePath` 推导的备用路径（`Driver.cpp:49`），但 `CANGJIE_HOME` 的优先级更高。
+- **CWE**：CWE-426（不受信任的搜索路径）
 
-```cpp
-if (driverOptions.environment.cangjieHome.has_value()) {
-    cjnativeBinSearchPaths.emplace_back(
-        FileUtil::JoinPath(driverOptions.environment.cangjieHome.value(), "third_party/llvm/bin"));
-}
-// 若未找到 opt/llc 则报错退出，否则直接执行找到的程序
-```
+#### VULN-13：`RemoveDirRecursively` 无 fd 锚定的 TOCTOU 竞态（低）
 
-#### 攻击路径
-
-攻击者设置 `CANGJIE_HOME=/tmp/evil` → 在 `/tmp/evil/third_party/llvm/bin/` 放置恶意 `opt`、`llc` → 用户运行 `cjc` → 编译器调用恶意后端工具 → 向编译产物注入后门代码（供应链攻击）。
-
-#### 修复建议
-
-对 `cangjieHome` 进行结构验证：路径必须包含预期的 `modules/`、`runtime/` 子目录。优先使用从编译器 `executablePath` 推导的路径，仅在环境变量路径通过验证后才覆盖默认值。
-
----
-
-### VULN-05：NDEBUG 发布构建下 CJC_ASSERT/CJC_NULLPTR_CHECK 完全消除
-
-**严重程度**：🟠 中危  
-**CWE**：CWE-617（Reachable Assertion）
-
-#### 漏洞代码
-
-**文件**：`include/cangjie/Utils/CheckUtils.h`，第 55–56 行
-
-```cpp
-#ifdef NDEBUG
-#define CJC_ASSERT(f) static_cast<void>(f)            // 副作用丢失，检查消失
-#define CJC_ASSERT_WITH_MSG(f, msg) (static_cast<void>(f), static_cast<void>(msg))
-#define CJC_ABORT()
-#define CJC_ABORT_WITH_MSG(msg) static_cast<void>(msg)
-```
-
-`CJC_NULLPTR_CHECK(p)` 展开为 `CJC_ASSERT((p) != nullptr)`，因此在发布构建中**所有空指针检查均失效**。代码库中有 **3716+ 处** `CJC_ASSERT`/`CJC_NULLPTR_CHECK` 调用（含大量 `src/Mangle/`、`src/Parse/` 中的安全关键检查）。
-
-#### 攻击路径
-
-攻击者构造畸形源码，使解析/语义分析阶段产生空指针节点 → Debug 构建中 `CJC_NULLPTR_CHECK` 安全中止 → Release 构建中检查消失，后续代码在空指针假设下继续执行 → 内存损坏或错误代码生成。
-
-#### 修复建议
-
-将安全关键检查与调试断言分离：
-
-```cpp
-// 不受 NDEBUG 影响的安全运行时检查宏
-#define CJC_SECURITY_CHECK(f)   \
-    do { if (!(f)) { InternalError("Security check failed: " #f); } } while(0)
-// 将 CJC_NULLPTR_CHECK 等关键路径改用 CJC_SECURITY_CHECK
-```
-
----
-
-### VULN-07：临时目录名生成随机性不足（未使用 mkdtemp）
-
-**严重程度**：🟡 低危  
-**CWE**：CWE-338（弱伪随机数生成器）、CWE-377（不安全临时文件）
-
-#### 漏洞代码
-
-**文件**：`src/Driver/TempFileManager.cpp`，`CreateTempDirName()` + `MakeTempDir()`
-
-```cpp
-// 时间戳（可预测）
-size_t ns = wallNow.tv_sec * 1e9 + wallNow.tv_nsec;
-// 仅 32 位随机数
-int randomInt = 0;
-read(fd, &randomInt, sizeof(int));  // 只读 4 字节
-// 拼接目录名
-ss << CANGJIE_TMP_DIR_PERFIX << SetNowTimeEncodedString() << "-" << GenerateRandomHexString();
-// mkdir（非原子，存在 TOCTOU 竞态）
-if (mkdir(path.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == 0) { return path; }
-```
-
-#### 攻击路径
-
-在高并发或可观察系统时钟的场景下，预测目录名 → 抢先 `mkdir`（EEXIST）或创建同名符号链接 → 编译临时文件写入攻击者指定位置。
-
-#### 修复建议
-
-```cpp
-// Linux/macOS: 使用操作系统原子保证的 mkdtemp
-std::string tmpl = FileUtil::JoinPath(tempDir, "cangjie-tmp-XXXXXX");
-char* result = mkdtemp(tmpl.data());
-```
-
----
-
-### VULN-09：SIGINT 信号处理函数调用非异步信号安全函数
-
-**严重程度**：🟡 低危  
-**CWE**：CWE-479（Signal Handler Use of a Non-reentrant Function）
-
-#### 漏洞代码
-
-**文件**：`src/Utils/SignalUnix.cpp`，第 76–80 行
-
-```cpp
-void SigintHandler(int signum, ...) {
-    Cangjie::TempFileManager::Instance().DeleteTempFiles();  // isSignalSafe = false（默认值）
-    _exit(signum + 128);
-}
-```
-
-**文件**：`include/cangjie/Driver/TempFileManager.h`，第 79 行
-
-```cpp
-void DeleteTempFiles(bool isSignalSafe = false);  // 默认值 false
-```
-
-`DeleteTempFiles(false)` 进一步调用 `RemoveDirRecursively`，其中使用 `opendir`/`readdir`/`closedir`，这些函数**不在 POSIX 异步信号安全函数列表中**（POSIX.1-2017 Table 21-1）。
-
-#### 攻击路径
-
-程序在持有 `malloc` 内部锁时接收 SIGINT → `SigintHandler` 中 `opendir` 调用内部 `malloc` → 死锁或堆状态损坏。
-
-#### 修复建议
-
-```cpp
-// 信号处理中传递安全标志
-void SigintHandler(int signum, ...) {
-    Cangjie::TempFileManager::Instance().DeleteTempFiles(true);  // isSignalSafe = true
-    _exit(signum + 128);
-}
-```
-
----
-
-### VULN-12：IntLiteral 移位运算对移位量无上界检查（C++ 未定义行为）
-
-**严重程度**：🟡 低危  
-**CWE**：CWE-190（Integer Overflow or Wraparound）
-
-#### 漏洞代码
-
-**文件**：`src/AST/IntLiteral.cpp`，第 461–471 行
-
-```cpp
-IntLiteral IntLiteral::operator>>(const IntLiteral& rhs) const
-{
-    return IntLiteral(static_cast<int64_t>(uint64Val >> rhs.uint64Val), type, false);
-    // 若 rhs.uint64Val >= 64，C++ 标准规定此为未定义行为
-}
-
-IntLiteral IntLiteral::operator<<(const IntLiteral& rhs) const
-{
-    return IntLiteral(static_cast<int64_t>(uint64Val << rhs.uint64Val), type, false);
-    // 同上
-}
-```
-
-#### 攻击路径
-
-攻击者构造含大移位量的常量表达式（如 `1 << 64`）→ 编译器常量折叠调用此运算符 → 未定义行为 → 编译器可能生成错误的目标代码，或在使用 UBSan 构建时崩溃。
-
-#### 修复建议
-
-```cpp
-IntLiteral IntLiteral::operator<<(const IntLiteral& rhs) const
-{
-    if (rhs.uint64Val >= 64) {
-        return IntLiteral(int64_t(0), type, true);  // 标记溢出
-    }
-    return IntLiteral(static_cast<int64_t>(uint64Val << rhs.uint64Val), type, false);
-}
-```
-
----
-
-### VULN-13：RemoveDirRecursively 存在 TOCTOU 竞态条件
-
-**严重程度**：🟡 低危  
-**CWE**：CWE-367（TOCTOU Race Condition）
-
-#### 漏洞代码
-
-**文件**：`src/Driver/TempFileManager.cpp`，第 179–200 行
+- **源码位置**：[`src/Driver/TempFileManager.cpp` 第 179–200 行](https://github.com/wyq0721/cangjie_compiler/blob/main/src/Driver/TempFileManager.cpp#L179-L200)
 
 ```cpp
 void RemoveDirRecursively(const std::string& dirPath)
 {
     DIR* dir = opendir(dirPath.c_str());
-    if (!dir) return;
+    // ...
     for (auto entry = readdir(dir); entry != nullptr; entry = readdir(dir)) {
-        std::string newPath = FileUtil::JoinPath(dirPath, fileName);
+        std::string newPath = Cangjie::FileUtil::JoinPath(dirPath, fileName);
         if (entry->d_type == DT_REG) {
-            (void)unlink(newPath.c_str());      // readdir 和 unlink 之间存在竞态窗口
+            (void)unlink(newPath.c_str());     // path-based, no fd anchoring
         } else if (entry->d_type == DT_DIR) {
-            RemoveDirRecursively(newPath);       // 递归时目录可能被替换为符号链接
+            RemoveDirRecursively(newPath);     // recursive path-based traversal
         }
     }
-    (void)closedir(dir);
-    (void)rmdir(dirPath.c_str());
 }
 ```
 
-#### 攻击路径
-
-攻击者（与编译器同组或有写权限）在 `readdir` 返回条目与 `unlink` 之间将文件替换为指向敏感文件的符号链接 → 编译器删除该符号链接指向的文件（任意文件删除）。
-
-#### 修复建议
-
-```cpp
-// 使用 C++17 std::filesystem::remove_all（实现更安全）
-#include <filesystem>
-std::filesystem::remove_all(std::filesystem::path(dirPath));
-```
+- **攻击可行性**：✅ **可行但受限**。`readdir` 返回条目与 `unlink`/`rmdir` 执行之间存在时间窗口，同机攻击者可利用符号链接替换将删除操作重定向到任意文件。由于临时目录权限为 `775`（`S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH`），同组用户可写，攻击面真实存在。需要本地同机访问权限。
+- **CWE**：CWE-367（TOCTOU 竞态条件）
 
 ---
 
-### VULN-14：编译器插件（--plugin）加载无完整性验证
+### 📂 `src/AST/`
 
-**严重程度**：🟠 中危  
-**CWE**：CWE-114（Process Control）、CWE-426（Untrusted Search Path）
+#### VULN-12：`IntLiteral` 移位操作未检查移位量边界（低）
 
-#### 漏洞代码
-
-**文件**：`src/Frontend/CompilerInstance.cpp`，`PerformPluginLoad()` 函数
+- **源码位置**：[`src/AST/IntLiteral.cpp` 第 461–470 行](https://github.com/wyq0721/cangjie_compiler/blob/main/src/AST/IntLiteral.cpp#L461-L470)
 
 ```cpp
-for (auto pluginPath : invocation.globalOptions.pluginPaths) {
-    try {
-        auto metaTransformPlugin = MetaTransformPlugin::Get(pluginPath);  // 直接加载 .so
-        // 无签名验证、无路径白名单
-        metaTransformPlugin.RegisterCallbackTo(metaTransformPluginBuilder);
-    } catch (...) { ... }
+IntLiteral IntLiteral::operator>>(const IntLiteral& rhs) const
+{
+    return IntLiteral(static_cast<int64_t>(uint64Val >> rhs.uint64Val), type, false);
+}
+
+IntLiteral IntLiteral::operator<<(const IntLiteral& rhs) const
+{
+    return IntLiteral(static_cast<int64_t>(uint64Val << rhs.uint64Val), type, false);
 }
 ```
 
-**文件**：`src/Option/OptionAction.cpp`（用户通过 `--plugin` 命令行选项指定路径）
-
-#### 攻击路径
-
-攻击者将恶意 `.so` 替换受害者工具链中已受信任的插件路径 → `--plugin` 导入该路径 → 恶意插件以编译器权限运行，可读取/修改所有 CHIR IR，向编译产物注入后门 → 供应链攻击。
-
-#### 修复建议
-
-1. 实现插件路径白名单（仅允许 `$CANGJIE_HOME/plugins/` 下的插件）；
-2. 长期目标：对插件 `.so` 实现数字签名验证；
-3. 文档中明确标注 `--plugin` 为信任边界内的危险选项。
+- **攻击可行性**：✅ **可行**。用户编写的仓颉源码中包含编译期常量表达式时，`rhs.uint64Val >= 64` 将导致 C++ 标准下的未定义行为（UB）。不同编译器和优化级别下行为不可预测，可能导致编译器生成错误的常量折叠结果，进而影响目标代码正确性。攻击者可构造特定源码使编译器产生错误结果。
+- **CWE**：CWE-190（整数溢出/回绕）
 
 ---
 
-### VULN-15：Demangler 无递归深度限制（栈溢出风险）
+### 📂 `src/Frontend/`
 
-**严重程度**：🟠 中危  
-**CWE**：CWE-674（Uncontrolled Recursion）
+#### VULN-14：`--plugin` 加载无签名或路径白名单验证（中）
 
-#### 漏洞代码
-
-**文件**：`demangler/Demangler.cpp`，`DemangleNextUnit` → `DemangleByPrefix` → `DemangleFunction`/`DemangleTuple` → `DemangleArgTypes` → `DemangleNextUnit`（循环递归）
+- **源码位置**：[`src/Frontend/CompilerInstance.cpp` 第 258–282 行](https://github.com/wyq0721/cangjie_compiler/blob/main/src/Frontend/CompilerInstance.cpp#L258-L282)（`MetaTransformPlugin::Get`），[第 291–304 行](https://github.com/wyq0721/cangjie_compiler/blob/main/src/Frontend/CompilerInstance.cpp#L291-L304)（`PerformPluginLoad` 循环）
 
 ```cpp
-// 无任何递归深度计数器或检查
-DemangleInfo<T> Demangler<T>::DemangleNextUnit(const T& message) {
-    auto di = DemangleByPrefix();      // 调用 DemangleByPrefix
-    ...
+MetaTransformPlugin MetaTransformPlugin::Get(const std::string& path)
+{
+    HANDLE handle = nullptr;
+#ifdef _WIN32
+    handle = InvokeRuntime::OpenSymbolTable(path);
+#elif defined(__linux__) || defined(__APPLE__)
+    handle = InvokeRuntime::OpenSymbolTable(path, RTLD_NOW | RTLD_LOCAL);
+#endif
+    // ... no signature check, no path allowlist
 }
-DemangleInfo<T> Demangler<T>::DemangleByPrefix() {
-    switch (ch) {
-        case 'F':  return DemangleFunction();     // DemangleFunction 再调 DemangleNextUnit
-        case 'T':  return DemangleTuple();         // DemangleTuple 再调 DemangleNextUnit
-        case 'C':  return DemangleClass(...);      // DemangleClass 再调 DemangleArgTypes
-        ...
-    }
-}
-// DemangleArgTypes 再调用 DemangleNextUnit
 ```
 
-#### 攻击路径
-
-攻击者构造深度嵌套的 mangled 名称（如数千层嵌套的泛型类型 `F0F0F0F0...`）→ 通过 `cjfilt` 工具标准输入、LSP 调试符号处理、或 `.chir` 文件中的符号名 → Demangler 深度递归耗尽栈空间 → `SIGSEGV` DoS。
-
-#### 修复建议
-
-```cpp
-template<typename T>
-class Demangler {
-    size_t recursionDepth = 0;
-    static constexpr size_t MAX_RECURSION_DEPTH = 256;
-
-    DemangleInfo<T> DemangleNextUnit(const T& message = T{}) {
-        if (++recursionDepth > MAX_RECURSION_DEPTH) {
-            --recursionDepth;
-            return Reject("recursion depth exceeded");
-        }
-        auto di = DemangleByPrefix();
-        --recursionDepth;
-        return di;
-    }
-};
-```
+- **攻击可行性**：✅ **可行**。`--plugin` 选项接受任意文件系统路径，在 Linux/macOS 上以 `RTLD_NOW | RTLD_LOCAL` 加载（比宏库安全，但仍无完整性验证）。在 CI/CD 管道中，若构建脚本从不可信源获取插件路径，攻击者可替换为恶意 `.so`。插件加载后直接调用 `getMetaTransformPluginInfo` 和 `registerTo` 函数指针，恶意插件可完全控制编译流程。
+- **CWE**：CWE-114（进程控制）
 
 ---
 
-## 风险修复优先级
+### 📂 `demangler/`
 
-| 优先级 | 漏洞 | 建议修复周期 |
-|--------|------|-------------|
-| P0（立即） | VULN-02（execvp 路径劫持） | 1–2 小时改动 |
-| P0（立即） | VULN-03（RTLD_GLOBAL 宏库） | < 1 小时改动 |
-| P0（立即） | VULN-01（FlatBuffers 无限制） | < 2 小时改动 |
-| P1（1 个月） | VULN-04（CANGJIE_HOME 验证） | 需路径验证逻辑 |
-| P1（1 个月） | VULN-15（Demangler 深度限制） | 1–2 小时改动 |
-| P1（1 个月） | VULN-09（信号处理参数修正） | < 30 分钟改动 |
-| P1（1 个月） | VULN-12（移位运算 UB 修复） | < 1 小时改动 |
-| P2（3 个月） | VULN-05（安全断言/调试断言分离） | 架构改动 |
-| P2（3 个月） | VULN-14（插件路径白名单） | 需策略设计 |
-| P2（3 个月） | VULN-07（mkdtemp 替换） | < 1 小时改动 |
-| P3（6 个月） | VULN-13（fd-based 目录删除） | 需重构 |
+#### VULN-15：Demangler 无递归深度限制（中）
+
+- **源码位置**：[`demangler/Demangler.cpp` 第 1412–1418 行](https://github.com/wyq0721/cangjie_compiler/blob/main/demangler/Demangler.cpp#L1412-L1418)（`DemangleNextUnit` 入口），[第 1422 行](https://github.com/wyq0721/cangjie_compiler/blob/main/demangler/Demangler.cpp#L1422)（`DemangleByPrefix` 分发），[第 1097–1098 行](https://github.com/wyq0721/cangjie_compiler/blob/main/demangler/Demangler.cpp#L1097-L1098)（`DemangleCFuncType` 递归），[第 1104–1108 行](https://github.com/wyq0721/cangjie_compiler/blob/main/demangler/Demangler.cpp#L1104-L1108)（`DemangleFunction` 递归）
+
+递归调用链：`DemangleNextUnit` → `DemangleByPrefix` → `DemangleFunction`/`DemangleTuple`/`DemangleClass` → `DemangleArgTypes` → `DemangleNextUnit`（循环递归），全链路无深度计数器。
+
+- **攻击可行性**：✅ **可行**。`cjfilt` 工具从 stdin 读取用户输入并直接传入 Demangler。攻击者可构造深度嵌套的 mangled 名称（如数千层嵌套的函数类型 `F0F0F0F0...`），触发不受限递归导致栈溢出崩溃。此 DoS 在以下场景中可被利用：
+  - 开发者对不可信的二进制文件运行 `cjfilt`
+  - 工具链集成中将 `cjfilt` 用于错误消息格式化
+- **CWE**：CWE-674（不受控递归）
 
 ---
 
-*本报告为原始报告（`security_audit_report_compiler.md`）经代码逐项核实后的归档版本。*  
-*11 项确认漏洞均附有精确的代码行号及可操作的修复建议。*
+## 驳回说明
+
+### ❌ VULN-05：`CJC_ASSERT` 在 NDEBUG 下消除
+
+- **源码位置**：[`include/cangjie/Utils/CheckUtils.h` 第 55–56 行](https://github.com/wyq0721/cangjie_compiler/blob/main/include/cangjie/Utils/CheckUtils.h#L55-L56)
+- **驳回理由**：编译器是**开发者工具**，不是面向终端用户的安全边界程序。`CJC_ASSERT` 保护的是编译器内部不变量（如 AST 节点非空、序列化完整性等），这些断言的触发前提是编译器自身存在 bug，而非外部攻击者可以通过输入源码直接触发。将编译器内部的调试断言策略定义为安全漏洞不具备攻击可行性——攻击者无法通过构造仓颉源码来选择性地利用被消除的断言。此外，`NDEBUG` 下消除 `assert` 是 C/C++ 生态的标准实践（GCC、Clang、MSVC 均如此）。
+
+### ❌ VULN-06：`RawStaticCast` 绕过类型检查
+
+- **源码位置**：[`include/cangjie/Utils/CastingTemplate.h` 第 220–227 行](https://github.com/wyq0721/cangjie_compiler/blob/main/include/cangjie/Utils/CastingTemplate.h#L220-L227)
+- **驳回理由**：代码审查确认所有在 `Node.cpp` 中的 `RawStaticCast` 调用均位于 `switch (astKind)` 分支内（如 `SetTarget`、`GetTarget`、`GetTargets`、`GetConstInvocation` 等函数）。`astKind` 由 AST 节点构造时确定，在生命周期内不可变，类型判断先于转换执行。不存在攻击者能绕过 `switch` 分支检查、使 `RawStaticCast` 操作错误类型对象的代码路径。
+
+### ❌ VULN-07：临时目录名可预测
+
+- **源码位置**：[`src/Driver/TempFileManager.cpp` 第 114–120 行](https://github.com/wyq0721/cangjie_compiler/blob/main/src/Driver/TempFileManager.cpp#L114-L120)
+- **驳回理由**：虽然随机源为 32-bit `/dev/urandom` 且使用 `mkdir` 而非 `mkdtemp`，但利用此弱点需要攻击者：(1) 在同一台机器上有本地访问权限；(2) 精确预测纳秒级时间戳；(3) 在 `CreateTempDirName` 和 `mkdir` 之间的极短时间窗口内完成目录创建和符号链接攻击。编译器是短生命周期进程，临时目录在编译完成后立即删除。在实际攻击场景中，如果攻击者已有同机本地权限，有更多更直接的攻击手段可用，无需利用此时序窗口。
+
+### ❌ VULN-08：Windows `CreateProcess` 命令注入
+
+- **源码位置**：[`src/Driver/Tool.cpp` 第 126–140 行](https://github.com/wyq0721/cangjie_compiler/blob/main/src/Driver/Tool.cpp#L126-L140)
+- **驳回理由**：`CreateProcessA` 的第一个参数为 `name.c_str()`（可执行文件的绝对路径），直接创建进程而不经过 `cmd.exe` 解释器。`%VARIABLE%`、`!delayed!`、`^escape` 等字符仅在 `cmd.exe` 环境下才会被展开，在直接 `CreateProcess` 调用中是惰性字面量。现有的 `std::quoted` 处理已足够应对参数中包含空格和双引号的情况。
+
+### ❌ VULN-09：SIGINT 信号处理中调用非异步信号安全函数
+
+- **源码位置**：[`src/Utils/SignalUnix.cpp` 第 76–80 行](https://github.com/wyq0721/cangjie_compiler/blob/main/src/Utils/SignalUnix.cpp#L76-L80)
+- **驳回理由**：`SigintHandler` 调用 `DeleteTempFiles()` 时使用默认参数 `isSignalSafe=false`。但代码在 `DeleteTempFiles` 中对目录执行 `rmdir`（信号安全）后仅在 `!isSignalSafe` 条件下才调用 `RemoveDirRecursively`。更关键的是：(1) SIGINT 仅由用户主动 Ctrl+C 触发，不是远程可触发的攻击向量；(2) 编译器是短生命周期进程，信号处理中的死锁风险在实际中极低；(3) 即使发生死锁，后果仅为编译器进程挂起，无安全影响。这是代码质量问题，不构成安全漏洞。
+
+### ❌ VULN-10：JSON 解析器缺陷
+
+- **源码位置**：[`src/Sema/Plugin/ParseJson.cpp`](https://github.com/wyq0721/cangjie_compiler/blob/main/src/Sema/Plugin/ParseJson.cpp)
+- **驳回理由**：该 JSON 解析器仅用于解析开发者通过编译选项指定的 syscap 配置文件（`PluginCustomAnnoChecker`），不处理来自外部不可信源的输入。解析器使用 `std::vector<uint8_t>` 做边界检查，逐字节读取，不存在内存安全问题。缺少转义处理和对格式错误的严格报告属于功能性问题，非安全漏洞。
+
+### ❌ VULN-11：构建路径泄露
+
+- **源码位置**：[`include/cangjie/Utils/CheckUtils.h` 第 42–50 行](https://github.com/wyq0721/cangjie_compiler/blob/main/include/cangjie/Utils/CheckUtils.h#L42-L50)
+- **驳回理由**：含 `__FILE__` 的 `CJC_ASSERT_WITH_MSG` 和 `CJC_ABORT_WITH_MSG` 仅在 `CMAKE_ENABLE_ASSERT` 或 debug 构建（非 NDEBUG）下编译。生产构建（`NDEBUG`）中这些宏展开为 `static_cast<void>(...)` 或空操作，`__FILE__` 完全不出现在二进制中。`InternalError()` 仅输出版本字符串和触发点编号，不包含文件路径。
 
 ---
 
-**报告结束**
+## 确认问题汇总表
+
+| 编号 | 严重级别 | 源码目录 | 文件 | CWE |
+|------|---------|---------|------|-----|
+| [VULN-01](#vuln-01flatbuffers-反序列化器禁用深度与表数量限制高) | 🔴 高 | `src/CHIR/Serializer/` | [`CHIRDeserializer.cpp:56-58`](https://github.com/wyq0721/cangjie_compiler/blob/main/src/CHIR/Serializer/CHIRDeserializer.cpp#L56-L58) | CWE-770 |
+| [VULN-02](#vuln-02宏服务器通过-execvp-依赖-path-查找启动高) | 🔴 高 | `src/Macro/` | [`MacroEvaluationClient.cpp:509`](https://github.com/wyq0721/cangjie_compiler/blob/main/src/Macro/MacroEvaluationClient.cpp#L509) | CWE-426 |
+| [VULN-03](#vuln-03宏-so-库使用-rtld_global-加载高) | 🔴 高 | `src/Macro/` + `include/` | [`InvokeUtil.h:80`](https://github.com/wyq0721/cangjie_compiler/blob/main/include/cangjie/Macro/InvokeUtil.h#L80) | CWE-114 |
+| [VULN-04](#vuln-04cangjie_home-环境变量无条件信任中) | 🟠 中 | `src/Option/` + `src/Driver/` | [`Option.cpp:1173`](https://github.com/wyq0721/cangjie_compiler/blob/main/src/Option/Option.cpp#L1173) | CWE-426 |
+| [VULN-12](#vuln-12intliteral-移位操作未检查移位量边界低) | 🟡 低 | `src/AST/` | [`IntLiteral.cpp:461-470`](https://github.com/wyq0721/cangjie_compiler/blob/main/src/AST/IntLiteral.cpp#L461-L470) | CWE-190 |
+| [VULN-13](#vuln-13removedirrecursively-无-fd-锚定的-toctou-竞态低) | 🟡 低 | `src/Driver/` | [`TempFileManager.cpp:179-200`](https://github.com/wyq0721/cangjie_compiler/blob/main/src/Driver/TempFileManager.cpp#L179-L200) | CWE-367 |
+| [VULN-14](#vuln-14--plugin-加载无签名或路径白名单验证中) | 🟠 中 | `src/Frontend/` | [`CompilerInstance.cpp:258-282`](https://github.com/wyq0721/cangjie_compiler/blob/main/src/Frontend/CompilerInstance.cpp#L258-L282) | CWE-114 |
+| [VULN-15](#vuln-15demangler-无递归深度限制中) | 🟠 中 | `demangler/` | [`Demangler.cpp:1412-1418`](https://github.com/wyq0721/cangjie_compiler/blob/main/demangler/Demangler.cpp#L1412-L1418) | CWE-674 |
+
+---
+
+## 修复优先级建议
+
+| 优先级 | 编号 | 建议修复方案 |
+|--------|------|------------|
+| P0（立即） | VULN-02 | 将 `execvp` 改为基于 `executablePath` 派生的绝对路径调用 `execv` |
+| P0（立即） | VULN-03 | 宏库调用 `OpenSymbolTable` 时显式传入 `RTLD_NOW \| RTLD_LOCAL` |
+| P1（1 个月） | VULN-01 | 为 `max_depth` 和 `max_tables` 设置合理上限（如 128 / 10000000） |
+| P1（1 个月） | VULN-04 | 对 `CANGJIE_HOME` 进行路径合法性验证，优先使用基于 `executablePath` 推导的路径 |
+| P2（3 个月） | VULN-14 | 添加插件路径白名单机制，限制为 `$CANGJIE_HOME/plugins/` |
+| P2（3 个月） | VULN-15 | 在 `DemangleNextUnit` 中添加递归深度计数器并限制（如 256） |
+| P3（6 个月） | VULN-12 | 在移位操作前添加 `rhs.uint64Val >= 64` 检查 |
+| P3（6 个月） | VULN-13 | 使用 `openat`/`unlinkat`/`fdopendir` 替代 path-based 操作，或改用 `std::filesystem::remove_all` |
