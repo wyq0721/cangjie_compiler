@@ -125,6 +125,15 @@ public:
     void SaveLambda2CurDecl(const Ptr<AST::Node> node);
 
     /**
+     * @brief Collect all local information (vars, wildcards, lambdas, funcs) in a single AST walk.
+     * This replaces the separate calls to SaveVar2CurDecl, SaveLambda2CurDecl,
+     * SaveLocalWildcardVar2Decl, and SaveFunc2CurDecl, reducing 4 AST walks to 1.
+     *
+     * @param node The declaration node to collect info from (FuncDecl/LambdaExpr/PrimaryCtorDecl/VarDeclAbstract).
+     */
+    void CollectAllLocalInfo(const Ptr<AST::Node> node);
+
+    /**
      * @brief Obtain global extend decl map.
      *
      * @param file Indicates AST::File.fileHash.

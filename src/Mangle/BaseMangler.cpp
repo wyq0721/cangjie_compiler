@@ -949,10 +949,7 @@ void BaseMangler::CollectLocalDecls(ManglerContext& ctx, AST::Package& pkg) cons
                 vda->outerDecl->astKind == ASTKind::STRUCT_DECL || vda->outerDecl->astKind == ASTKind::ENUM_DECL);
         bool needCollect = isFunc || isLambda || isGlobal || isCompositeType;
         if (needCollect) {
-            ctx.SaveVar2CurDecl(node);
-            ctx.SaveLambda2CurDecl(node);
-            ctx.SaveLocalWildcardVar2Decl(node);
-            ctx.SaveFunc2CurDecl(node);
+            ctx.CollectAllLocalInfo(node);
         }
         return VisitAction::WALK_CHILDREN;
     }).Walk();
@@ -1286,6 +1283,107 @@ namespace {
             return vda;
         }
         return nullptr;
+    }
+}
+
+void ManglerContext::CollectAllLocalInfo(const Ptr<Node> node)
+{
+    // Handle special case from SaveFunc2CurDecl: generic instantiated function
+    if (auto function = DynamicCast<FuncDecl>(node)) {
+        if (function->TestAttr(AST::Attribute::GENERIC_INSTANTIATED) && !function->TestAttr(AST::Attribute::GLOBAL)) {
+            if (function->outerDecl && !function->outerDecl->IsNominalDecl()) {
+                auto outerKey = GetDeclKey(function->outerDecl);
+                if (outerKey != nullptr) {
+                    auto& mapOfName2Func = node2LocalFunc[outerKey][function->identifier.Val()];
+                    mapOfName2Func.emplace_back(function);
+                }
+            }
+        }
+    }
+
+    // Determine the main key (funcBody for func/lambda/pcd, or vda itself)
+    Ptr<Node> mainKey = nullptr;
+    bool isGlobalVda = false;
+    bool isCompositeVda = false;
+
+    if (auto lambda = DynamicCast<LambdaExpr>(node)) {
+        mainKey = lambda->funcBody.get();
+    } else if (auto function = DynamicCast<FuncDecl>(node)) {
+        mainKey = function->funcBody.get();
+    } else if (auto pcd = DynamicCast<PrimaryCtorDecl>(node)) {
+        mainKey = pcd->funcBody.get();
+    } else if (auto vda = DynamicCast<VarDeclAbstract>(node)) {
+        isGlobalVda = vda->TestAttr(Attribute::GLOBAL);
+        isCompositeVda = vda->outerDecl &&
+            (vda->outerDecl->astKind == ASTKind::CLASS_DECL || vda->outerDecl->astKind == ASTKind::INTERFACE_DECL ||
+                vda->outerDecl->astKind == ASTKind::STRUCT_DECL || vda->outerDecl->astKind == ASTKind::ENUM_DECL);
+        mainKey = vda;
+    }
+
+    if (!mainKey) {
+        return;
+    }
+
+    // SaveVar2CurDecl and SaveLocalWildcardVar2Decl only process func/lambda/pcd/global-VDA
+    bool collectVarsAndWildcards = !DynamicCast<VarDeclAbstract>(node) || isGlobalVda;
+
+    // Single walk collecting vars, wildcards, lambdas, and funcs simultaneously.
+    // Original behavior: SaveVar/SaveWildcard/SaveLambda skip nested FuncBody children,
+    // but SaveFunc walks into nested FuncBody. We use depth tracking to reproduce this.
+    int nestedFuncBodyDepth = 0;
+    Walker(mainKey,
+        [this, &mainKey, &nestedFuncBodyDepth, collectVarsAndWildcards](const Ptr<Node>& n) {
+            if (Is<FuncBody>(n) && n != mainKey) {
+                nestedFuncBodyDepth++;
+            }
+
+            if (nestedFuncBodyDepth == 0) {
+                if (collectVarsAndWildcards) {
+                    if (auto vda = DynamicCast<VarDeclAbstract>(n); vda && n != mainKey) {
+                        node2LocalVar[mainKey][vda->identifier.Val()].emplace_back(vda);
+                    }
+                    if (auto vpd = DynamicCast<VarWithPatternDecl>(n); vpd && n != mainKey) {
+                        node2LocalWildcardVar[mainKey].emplace_back(vpd);
+                    }
+                }
+                if (auto le = DynamicCast<LambdaExpr>(n); le && n != mainKey) {
+                    node2Lambda[mainKey].emplace_back(le);
+                }
+            }
+
+            // Always collect funcs regardless of nesting depth
+            if (auto fd = DynamicCast<FuncDecl>(n); fd && n != mainKey) {
+                node2LocalFunc[mainKey][fd->identifier.Val()].emplace_back(fd);
+            }
+
+            return VisitAction::WALK_CHILDREN;
+        },
+        [&mainKey, &nestedFuncBodyDepth]([[maybe_unused]] const Ptr<Node>& n) {
+            if (Is<FuncBody>(n) && n != mainKey) {
+                nestedFuncBodyDepth--;
+            }
+            return VisitAction::KEEP_DECISION;
+        }).Walk();
+
+    // Handle annotationsArray key for lambda collection (from SaveLambda2CurDecl)
+    Ptr<Node> annotationsKey = nullptr;
+    if (auto function = DynamicCast<FuncDecl>(node)) {
+        annotationsKey = function->annotationsArray.get();
+    } else if (auto pcd = DynamicCast<PrimaryCtorDecl>(node)) {
+        annotationsKey = pcd->annotationsArray.get();
+    } else if (auto vda = DynamicCast<VarDeclAbstract>(node); vda && (isGlobalVda || isCompositeVda)) {
+        annotationsKey = vda->annotationsArray.get();
+    }
+
+    if (annotationsKey) {
+        Walker(annotationsKey, [this, &annotationsKey](const Ptr<Node>& n) {
+            if (auto le = DynamicCast<LambdaExpr>(n); le && n != annotationsKey) {
+                node2Lambda[annotationsKey].emplace_back(le);
+            } else if (Is<FuncBody>(n) && n != annotationsKey) {
+                return VisitAction::SKIP_CHILDREN;
+            }
+            return VisitAction::WALK_CHILDREN;
+        }).Walk();
     }
 }
 
