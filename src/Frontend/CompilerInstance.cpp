@@ -761,47 +761,56 @@ void CompilerInstance::ManglingHelpFunction(const BaseMangler& baseMangler)
         topDeclsSet.insert(std::make_pair(decl, pkgName));
     };
 
-    for (auto& package : GetPackages()) {
-        auto fullPackageName = package->fullPackageName;
-        Walker(package, [&fullPackageName](Ptr<Node> node) {
-            if (auto vd = DynamicCast<VarDecl>(node); vd && vd->fullPackageName.empty()) {
-                vd->fullPackageName = fullPackageName;
-                return VisitAction::SKIP_CHILDREN;
+    {
+        Utils::ProfileRecorder recorder("Perform Mangling", "FillVarDeclPkgName");
+        for (auto& package : GetPackages()) {
+            auto fullPackageName = package->fullPackageName;
+            Walker(package, [&fullPackageName](Ptr<Node> node) {
+                if (auto vd = DynamicCast<VarDecl>(node); vd && vd->fullPackageName.empty()) {
+                    vd->fullPackageName = fullPackageName;
+                    return VisitAction::SKIP_CHILDREN;
+                }
+                return VisitAction::WALK_CHILDREN;
+            }).Walk();
+            for (auto& file : package->files) {
+                for (auto& decl : file->decls) {
+                    deduplicatedEmplace(decl.get(), package->fullPackageName);
+                }
             }
-            return VisitAction::WALK_CHILDREN;
-        }).Walk();
-        for (auto& file : package->files) {
-            for (auto& decl : file->decls) {
+            for (auto& decl : package->genericInstantiatedDecls) {
                 deduplicatedEmplace(decl.get(), package->fullPackageName);
             }
         }
-        for (auto& decl : package->genericInstantiatedDecls) {
-            deduplicatedEmplace(decl.get(), package->fullPackageName);
-        }
     }
-    for (auto& importPkg : importManager.GetAllImportedPackages()) {
-        CJC_NULLPTR_CHECK(importPkg->srcPackage.get());
-        // exclude current package
-        if (!importPkg->srcPackage->TestAttr(AST::Attribute::IMPORTED)) {
-            continue;
-        }
-        for (auto& file : importPkg->srcPackage->files) {
-            for (auto& decl : file->decls) {
-                deduplicatedEmplace(decl.get(), importPkg->fullPackageName);
+    {
+        Utils::ProfileRecorder recorder("Perform Mangling", "CollectTopDecls");
+        for (auto& importPkg : importManager.GetAllImportedPackages()) {
+            CJC_NULLPTR_CHECK(importPkg->srcPackage.get());
+            // exclude current package
+            if (!importPkg->srcPackage->TestAttr(AST::Attribute::IMPORTED)) {
+                continue;
             }
-            for (auto& decl : file->exportedInternalDecls) {
-                deduplicatedEmplace(decl.get(), importPkg->fullPackageName);
+            for (auto& file : importPkg->srcPackage->files) {
+                for (auto& decl : file->decls) {
+                    deduplicatedEmplace(decl.get(), importPkg->fullPackageName);
+                }
+                for (auto& decl : file->exportedInternalDecls) {
+                    deduplicatedEmplace(decl.get(), importPkg->fullPackageName);
+                }
             }
-        }
-        for (auto& decl : importPkg->srcPackage->genericInstantiatedDecls) {
-            if (decl->IsNominalDecl()) {
-                deduplicatedEmplace(decl.get(), importPkg->fullPackageName);
+            for (auto& decl : importPkg->srcPackage->genericInstantiatedDecls) {
+                if (decl->IsNominalDecl()) {
+                    deduplicatedEmplace(decl.get(), importPkg->fullPackageName);
+                }
             }
         }
     }
 
     std::vector<DeclAndPackageName> topDecls(topDeclsSet.begin(), topDeclsSet.end());
-    DoMangling(baseMangler, invocation.globalOptions.GetJobs(), topDecls);
+    {
+        Utils::ProfileRecorder recorder("Perform Mangling", "DoMangling");
+        DoMangling(baseMangler, invocation.globalOptions.GetJobs(), topDecls);
+    }
 }
 
 bool CompilerInstance::PerformMangling()
@@ -814,14 +823,17 @@ bool CompilerInstance::PerformMangling()
     std::vector<std::unique_ptr<ManglerContext>> manglerCtxVec;
 
     // Get all imported packages and source packages.
-    for (auto& package : importManager.GetAllImportedPackages()) {
-        std::string pkgName = ManglerContext::ReduceUnitTestPackageName(package->fullPackageName);
-        if (mangler->manglerCtxTable.find(pkgName) == mangler->manglerCtxTable.end()) {
-            auto manglerCtx = std::make_unique<ManglerContext>();
-            mangler->manglerCtxTable[pkgName] = manglerCtx.get();
-            manglerCtxVec.emplace_back(std::move(manglerCtx));
+    {
+        Utils::ProfileRecorder recorder("Perform Mangling", "CollectLocalDecls");
+        for (auto& package : importManager.GetAllImportedPackages()) {
+            std::string pkgName = ManglerContext::ReduceUnitTestPackageName(package->fullPackageName);
+            if (mangler->manglerCtxTable.find(pkgName) == mangler->manglerCtxTable.end()) {
+                auto manglerCtx = std::make_unique<ManglerContext>();
+                mangler->manglerCtxTable[pkgName] = manglerCtx.get();
+                manglerCtxVec.emplace_back(std::move(manglerCtx));
+            }
+            mangler->CollectLocalDecls(*mangler->manglerCtxTable.at(pkgName), *package->srcPackage);
         }
-        mangler->CollectLocalDecls(*mangler->manglerCtxTable.at(pkgName), *package->srcPackage);
     }
 #endif
     mangler->lambdaCounter = cachedInfo.lambdaCounter;
