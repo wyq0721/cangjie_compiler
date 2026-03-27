@@ -12,3 +12,12 @@ target_link_libraries(
     GTest::gtest
     GTest::gtest_main)
 add_test(NAME ManglerContextTest COMMAND ManglerContextTest)
+
+add_executable(FilteredPrefixTest FilteredPrefixTest.cpp)
+target_link_libraries(
+    FilteredPrefixTest
+    cangjie-lsp
+    ${CMAKE_DL_LIBS}
+    GTest::gtest
+    GTest::gtest_main)
+add_test(NAME FilteredPrefixTest COMMAND FilteredPrefixTest)

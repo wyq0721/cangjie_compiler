@@ -640,15 +640,13 @@ void DoNewMangling(
     const BaseMangler& baseMangler, const std::vector<DeclAndPackageName>& decls, size_t start, size_t end)
 {
     std::vector<Ptr<Node>> prefix;
-    auto handleMangle = [&baseMangler, &prefix](Ptr<Node> node) -> VisitAction {
-        std::vector<Ptr<Node>> filteredPrefix;
-        for (size_t i = 0; i < prefix.size(); i++) {
-            if (filteredPrefix.size() != 0 && Is<Expr>(filteredPrefix.back().get()) &&
-                static_cast<AST::Expr*>(filteredPrefix.back().get())->desugarExpr.get() == prefix[i].get()) {
-                filteredPrefix.pop_back();
-            }
-            filteredPrefix.emplace_back(prefix[i]);
-        }
+    // Incrementally maintained filtered prefix (avoids O(n) rebuild per node visit)
+    std::vector<Ptr<Node>> filteredPrefix;
+    // Track replaced nodes for undo on pop: nullptr means no replacement occurred
+    std::vector<Ptr<Node>> replacedNodes;
+
+    auto handleMangle = [&baseMangler, &prefix, &filteredPrefix, &replacedNodes](Ptr<Node> node) -> VisitAction {
+        // filteredPrefix is already up to date with the current prefix state
         auto nextAction = Meta::match(*node)(
             [&baseMangler, &filteredPrefix](Decl& decl) {
                 if (decl.astKind == ASTKind::MAIN_DECL) {
@@ -679,10 +677,29 @@ void DoNewMangling(
             },
             []([[maybe_unused]] const Node& node) { return VisitAction::WALK_CHILDREN; },
             []() { return VisitAction::WALK_CHILDREN; });
+
+        // Incrementally update filteredPrefix when pushing node to prefix.
+        // Mirrors the original loop logic: if the last filtered element is an Expr
+        // whose desugarExpr equals the new node, replace it.
+        Ptr<Node> replaced = nullptr;
+        if (!filteredPrefix.empty() && Is<Expr>(filteredPrefix.back().get()) &&
+            static_cast<AST::Expr*>(filteredPrefix.back().get())->desugarExpr.get() == node) {
+            replaced = filteredPrefix.back();
+            filteredPrefix.pop_back();
+        }
+        filteredPrefix.emplace_back(node);
+        replacedNodes.push_back(replaced);
         prefix.emplace_back(node);
+
         return nextAction;
     };
-    auto cleanUpNode = [&prefix]([[maybe_unused]] const Ptr<Node>& node) -> VisitAction {
+    auto cleanUpNode = [&prefix, &filteredPrefix, &replacedNodes]([[maybe_unused]] const Ptr<Node>& node) -> VisitAction {
+        // Reverse the incremental filteredPrefix update
+        filteredPrefix.pop_back();
+        if (replacedNodes.back() != nullptr) {
+            filteredPrefix.push_back(replacedNodes.back());
+        }
+        replacedNodes.pop_back();
         prefix.pop_back();
         return VisitAction::KEEP_DECISION;
     };
