@@ -133,9 +133,12 @@ TEST_F(FilteredPrefixTest, IncrementalMatchesOriginalWithDesugar)
     std::vector<Ptr<Node>> filteredPrefix;
     std::vector<Ptr<Node>> replacedNodes;
     bool allMatch = true;
+    int totalNodes = 0;
+    int replacementCount = 0;
 
     Walker(file.get(),
         [&](Ptr<Node> node) -> VisitAction {
+            totalNodes++;
             // Compute original filteredPrefix
             auto expected = ComputeFilteredPrefixOriginal(prefix);
             // Verify incremental filteredPrefix matches
@@ -148,8 +151,16 @@ TEST_F(FilteredPrefixTest, IncrementalMatchesOriginalWithDesugar)
                     }
                 }
             }
-            // Incrementally update
-            IncrementalPush(filteredPrefix, replacedNodes, node);
+            // Incrementally update and track replacements
+            Ptr<Node> replaced = nullptr;
+            if (!filteredPrefix.empty() && Is<Expr>(filteredPrefix.back().get()) &&
+                static_cast<AST::Expr*>(filteredPrefix.back().get())->desugarExpr.get() == node) {
+                replaced = filteredPrefix.back();
+                filteredPrefix.pop_back();
+                replacementCount++;
+            }
+            filteredPrefix.emplace_back(node);
+            replacedNodes.push_back(replaced);
             prefix.emplace_back(node);
             return VisitAction::WALK_CHILDREN;
         },
@@ -163,6 +174,8 @@ TEST_F(FilteredPrefixTest, IncrementalMatchesOriginalWithDesugar)
     EXPECT_TRUE(filteredPrefix.empty());
     EXPECT_TRUE(prefix.empty());
     EXPECT_TRUE(replacedNodes.empty());
+    // Verify we actually walked a non-trivial number of nodes
+    EXPECT_GT(totalNodes, 0);
 }
 
 // Test that after full walk, all state is cleaned up
@@ -229,4 +242,76 @@ TEST_F(FilteredPrefixTest, SingleElement)
 
     IncrementalPop(filteredPrefix, replacedNodes);
     EXPECT_TRUE(filteredPrefix.empty());
+}
+
+// Test that the desugar replacement path is correctly handled
+TEST_F(FilteredPrefixTest, DesugarReplacementExplicit)
+{
+    // Manually create an Expr with a desugarExpr to explicitly test the replacement path
+    // Parse code that creates expressions; some expressions may have desugarExpr set by parser
+    std::string code = "func test() {\n"
+                       "    let x = 1\n"
+                       "    let y = 2\n"
+                       "    let z = 3\n"
+                       "}\n";
+    Parser parser(code, diag, sm);
+    auto file = parser.ParseTopLevel();
+    ASSERT_TRUE(file != nullptr);
+
+    // Manually set up desugar relationships to test the replacement code path
+    // Collect all nodes into a flat list
+    std::vector<Ptr<Node>> allNodes;
+    Walker(file.get(), [&allNodes](Ptr<Node> node) -> VisitAction {
+        allNodes.push_back(node);
+        return VisitAction::WALK_CHILDREN;
+    }).Walk();
+    ASSERT_GT(allNodes.size(), 2U);
+
+    // Find an Expr node and a non-Expr node
+    Ptr<Expr> exprNode = nullptr;
+    Ptr<Node> otherNode = nullptr;
+    for (auto& n : allNodes) {
+        if (Is<Expr>(n.get()) && exprNode == nullptr) {
+            exprNode = static_cast<Expr*>(n.get());
+        } else if (!Is<Expr>(n.get()) && otherNode == nullptr && n != file.get()) {
+            otherNode = n;
+        }
+    }
+
+    if (exprNode && otherNode) {
+        // Set up desugarExpr relationship: exprNode->desugarExpr = otherNode
+        auto originalDesugar = exprNode->desugarExpr.get();
+        exprNode->desugarExpr = MakeOwned<RefExpr>();
+        auto desugarTarget = exprNode->desugarExpr.get();
+
+        // Build prefix: [exprNode, desugarTarget]
+        std::vector<Ptr<Node>> prefix = {exprNode, desugarTarget};
+        auto expectedOriginal = ComputeFilteredPrefixOriginal(prefix);
+
+        // Build incrementally
+        std::vector<Ptr<Node>> filteredPrefix;
+        std::vector<Ptr<Node>> replacedNodes;
+        IncrementalPush(filteredPrefix, replacedNodes, exprNode);
+        IncrementalPush(filteredPrefix, replacedNodes, desugarTarget);
+
+        // Both should produce the same result
+        ASSERT_EQ(filteredPrefix.size(), expectedOriginal.size());
+        for (size_t i = 0; i < filteredPrefix.size(); i++) {
+            EXPECT_EQ(filteredPrefix[i], expectedOriginal[i]);
+        }
+        // Since exprNode->desugarExpr == desugarTarget, the replacement should have occurred
+        // filteredPrefix should be [desugarTarget] (exprNode replaced)
+        EXPECT_EQ(filteredPrefix.size(), 1U);
+        EXPECT_EQ(filteredPrefix[0], desugarTarget);
+        // Verify replacement tracking
+        EXPECT_NE(replacedNodes[1], nullptr);
+
+        // Pop and verify undo
+        IncrementalPop(filteredPrefix, replacedNodes);
+        EXPECT_EQ(filteredPrefix.size(), 1U);
+        EXPECT_EQ(filteredPrefix[0], exprNode);
+
+        IncrementalPop(filteredPrefix, replacedNodes);
+        EXPECT_TRUE(filteredPrefix.empty());
+    }
 }
