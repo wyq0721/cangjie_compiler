@@ -22,6 +22,6 @@ jobs:
           GITCODE_USER: ${{ secrets.GITCODE_USER }}
         run: |
           git remote add gitcode \
-            "https://${GITCODE_USER}:${GITCODE_TOKEN}@gitcode.com/Cangjie/cangjie_compiler.git"
+            "https://${GITCODE_USER}:${GITCODE_TOKEN}@gitcode.com/wyq1213/cangjie_compiler.git"
           git push gitcode --all --force
           git push gitcode --tags --force
