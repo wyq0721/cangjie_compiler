@@ -401,19 +401,19 @@ bool LexerImpl::ProcessDigits(const int& base, bool& hasDigit, const char* reaso
 
 | 编号 | 风险 | 源码目录 | 文件 | CWE | 类型 |
 |------|------|---------|------|-----|------|
-| EXTRA-HIGH-01 | 🔴 高 | `include/` + `src/Macro/` | [`InvokeUtil.h:80`](https://github.com/wyq0721/cangjie_compiler/blob/main/include/cangjie/Macro/InvokeUtil.h#L80) | CWE-114 | 符号劫持 |
-| EXTRA-MED-01 | 🟡 中 | `src/AST/` | [`IntLiteral.cpp:461`](https://github.com/wyq0721/cangjie_compiler/blob/main/src/AST/IntLiteral.cpp#L461) | CWE-190 | 未定义行为 |
-| EXTRA-MED-02 | 🟡 中 | `src/AST/` | [`IntLiteral.cpp:418`](https://github.com/wyq0721/cangjie_compiler/blob/main/src/AST/IntLiteral.cpp#L418) | CWE-369 | 除零崩溃 |
-| EXTRA-MED-03 | 🟡 中 | `src/Parse/` | [`ParseType.cpp:297`](https://github.com/wyq0721/cangjie_compiler/blob/main/src/Parse/ParseType.cpp#L297) | CWE-674 | 栈溢出 |
-| EXTRA-MED-04 | 🟡 中 | `src/Macro/` | [`MacroEvalMsgSerializer.cpp:231`](https://github.com/wyq0721/cangjie_compiler/blob/main/src/Macro/MacroEvalMsgSerializer.cpp#L231) | CWE-20 | 空指针崩溃 |
-| EXTRA-MED-05 | 🟡 中 | `src/Modules/` | [`ReferenceLoader.cpp:277`](https://github.com/wyq0721/cangjie_compiler/blob/main/src/Modules/ASTSerialization/ReferenceLoader.cpp#L277) | CWE-125 | 越界读写 |
-| EXTRA-MED-06 | 🟡 中 | `src/Mangle/` | [`Compression.cpp:237`](https://github.com/wyq0721/cangjie_compiler/blob/main/src/Mangle/Compression.cpp#L237) | CWE-125 | 越界读取 |
-| EXTRA-MED-07 | 🟡 中 | `src/ConditionalCompilation/` | [`ConditionalCompilation.cpp:408`](https://github.com/wyq0721/cangjie_compiler/blob/main/src/ConditionalCompilation/ConditionalCompilation.cpp#L408) | CWE-674 | 栈溢出 |
-| EXTRA-MED-08 | 🟡 中 | `src/CodeGen/` | [`CJNativeIntrinsicsCall.cpp:250`](https://github.com/wyq0721/cangjie_compiler/blob/main/src/CodeGen/CJNative/CJNativeIntrinsicsCall.cpp#L250) | CWE-190 | 整数溢出 |
-| EXTRA-LOW-01 | 🟢 低 | `src/Lex/` | [`Lexer.cpp:386`](https://github.com/wyq0721/cangjie_compiler/blob/main/src/Lex/Lexer.cpp#L386) | CWE-400 | 资源耗尽 |
-| EXTRA-LOW-02 | 🟢 低 | `src/AST/` | [`IntLiteral.cpp:442`](https://github.com/wyq0721/cangjie_compiler/blob/main/src/AST/IntLiteral.cpp#L442) | CWE-369 | 除零崩溃 |
-| EXTRA-LOW-03 | 🟢 低 | `src/AST/` | [`Walker.cpp:39`](https://github.com/wyq0721/cangjie_compiler/blob/main/src/AST/Walker.cpp#L39) | CWE-674 | 栈溢出 |
-| EXTRA-LOW-04 | 🟢 低 | `src/Sema/` | [`TypeArgumentInference.cpp:272`](https://github.com/wyq0721/cangjie_compiler/blob/main/src/Sema/TypeArgumentInference.cpp#L272) | CWE-125 | 越界读取 |
+| EXTRA-HIGH-01 | 🔴 高 | `include/cangjie/Macro/` + `src/Macro/` | [`include/cangjie/Macro/InvokeUtil.h:80`](https://github.com/wyq0721/cangjie_compiler/blob/main/include/cangjie/Macro/InvokeUtil.h#L80) | CWE-114 | 符号劫持 |
+| EXTRA-MED-01 | 🟡 中 | `src/AST/` | [`src/AST/IntLiteral.cpp:461`](https://github.com/wyq0721/cangjie_compiler/blob/main/src/AST/IntLiteral.cpp#L461) | CWE-190 | 未定义行为 |
+| EXTRA-MED-02 | 🟡 中 | `src/AST/` | [`src/AST/IntLiteral.cpp:418`](https://github.com/wyq0721/cangjie_compiler/blob/main/src/AST/IntLiteral.cpp#L418) | CWE-369 | 除零崩溃 |
+| EXTRA-MED-03 | 🟡 中 | `src/Parse/` | [`src/Parse/ParseType.cpp:297`](https://github.com/wyq0721/cangjie_compiler/blob/main/src/Parse/ParseType.cpp#L297) | CWE-674 | 栈溢出 |
+| EXTRA-MED-04 | 🟡 中 | `src/Macro/` | [`src/Macro/MacroEvalMsgSerializer.cpp:231`](https://github.com/wyq0721/cangjie_compiler/blob/main/src/Macro/MacroEvalMsgSerializer.cpp#L231) | CWE-20 | 空指针崩溃 |
+| EXTRA-MED-05 | 🟡 中 | `src/Modules/ASTSerialization/` | [`src/Modules/ASTSerialization/ReferenceLoader.cpp:277`](https://github.com/wyq0721/cangjie_compiler/blob/main/src/Modules/ASTSerialization/ReferenceLoader.cpp#L277) | CWE-125 | 越界读写 |
+| EXTRA-MED-06 | 🟡 中 | `src/Mangle/` | [`src/Mangle/Compression.cpp:237`](https://github.com/wyq0721/cangjie_compiler/blob/main/src/Mangle/Compression.cpp#L237) | CWE-125 | 越界读取 |
+| EXTRA-MED-07 | 🟡 中 | `src/ConditionalCompilation/` | [`src/ConditionalCompilation/ConditionalCompilation.cpp:408`](https://github.com/wyq0721/cangjie_compiler/blob/main/src/ConditionalCompilation/ConditionalCompilation.cpp#L408) | CWE-674 | 栈溢出 |
+| EXTRA-MED-08 | 🟡 中 | `src/CodeGen/CJNative/` | [`src/CodeGen/CJNative/CJNativeIntrinsicsCall.cpp:250`](https://github.com/wyq0721/cangjie_compiler/blob/main/src/CodeGen/CJNative/CJNativeIntrinsicsCall.cpp#L250) | CWE-190 | 整数溢出 |
+| EXTRA-LOW-01 | 🟢 低 | `src/Lex/` | [`src/Lex/Lexer.cpp:386`](https://github.com/wyq0721/cangjie_compiler/blob/main/src/Lex/Lexer.cpp#L386) | CWE-400 | 资源耗尽 |
+| EXTRA-LOW-02 | 🟢 低 | `src/AST/` | [`src/AST/IntLiteral.cpp:442`](https://github.com/wyq0721/cangjie_compiler/blob/main/src/AST/IntLiteral.cpp#L442) | CWE-369 | 除零崩溃 |
+| EXTRA-LOW-03 | 🟢 低 | `src/AST/` | [`src/AST/Walker.cpp:39`](https://github.com/wyq0721/cangjie_compiler/blob/main/src/AST/Walker.cpp#L39) | CWE-674 | 栈溢出 |
+| EXTRA-LOW-04 | 🟢 低 | `src/Sema/` | [`src/Sema/TypeArgumentInference.cpp:272`](https://github.com/wyq0721/cangjie_compiler/blob/main/src/Sema/TypeArgumentInference.cpp#L272) | CWE-125 | 越界读取 |
 
 ---
 
