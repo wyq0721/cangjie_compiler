@@ -1,0 +1,27 @@
+name: Mirror to Gitcode
+
+on:
+  push:
+    branches:
+      - '**'
+    tags:
+      - '**'
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push to Gitcode mirror
+        env:
+          GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
+          GITCODE_USER: ${{ secrets.GITCODE_USER }}
+        run: |
+          git remote add gitcode \
+            "https://${GITCODE_USER}:${GITCODE_TOKEN}@gitcode.com/wyq1213/cangjie_compiler.git"
+          git push gitcode --all --force
+          git push gitcode --tags --force
