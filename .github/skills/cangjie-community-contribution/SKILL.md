@@ -24,18 +24,21 @@ description: 在处理分支创建、提交 commit、编写 PR 描述、贡献�
 1. 基于最新主线创建独立分支开展修改，不直接在主分支上开发。
 2. 每个 commit 只解决单一主题，避免把无关修改混在同一次提交中。
 3. commit 信息保持简洁明确，直接说明本次变更做了什么。
-4. 提交前先完成本地自检，确认相关构建、测试、文档与代码风格已经检查。
-5. 编写 PR 时说明变更目的、主要内容、验证结果，并关联对应 issue。
-6. 对评审意见及时响应，按反馈继续补充或修正提交。
+4. 提交 commit 时必须带 signoff，签名信息固定为 `Signed-off-by: wyq123 <wangyinqiang2@huawei.com>`。
+5. 提交前先完成本地自检，确认相关构建、测试、文档与代码风格已经检查。
+6. 编写 PR 时说明变更目的、主要内容、验证结果，并关联对应 issue。
+7. 对评审意见及时响应，按反馈继续补充或修正提交。
 
 ## 针对当前仓库的额外检查
 
 - 参考 `README.md` 中的构建与测试命令：`python3 build.py build -t release`、`python3 build.py test`
 - 参考 PR 模板补充自检项：编译本地自验证、测试用例本地自验证、关联 issue
+- 如需给出 commit 命令或提交建议，需确保最终提交包含 `Signed-off-by: wyq123 <wangyinqiang2@huawei.com>`
 - 若当前环境无法完成构建或测试，需要在说明中明确阻塞原因，不要伪造验证结论
 
 ## 输出要求
 
 - 给出 commit 建议时，优先建议单一主题、可读性好的提交标题
+- 给出 commit 建议时，同时提醒补齐 signoff 信息 `Signed-off-by: wyq123 <wangyinqiang2@huawei.com>`
 - 给出 PR 描述时，覆盖变更内容、变更类型、自检结果、关联 issue
 - 若发现修改范围过大，先建议拆分提交，再继续后续操作
