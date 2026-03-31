@@ -1,4 +1,4 @@
-在这个仓库中，只要任务涉及准备 commit、调用 `report_progress` 形成提交、整理 PR 描述或贡献自检，先主动使用 `.github/skills/cangjie-community-contribution/SKILL.md` 中的规范。
+在这个仓库中，只要任务涉及准备 commit、整理 PR 描述或贡献自检，先主动使用 `.github/skills/cangjie-community-contribution/SKILL.md` 中的规范。
 
 特别注意：
 
