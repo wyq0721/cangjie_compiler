@@ -383,7 +383,12 @@ if (CANGJIE_CODEGEN_CJNATIVE_BACKEND)
         endif() 
     endif()
     if(DARWIN)
-        target_link_libraries(cangjie-frontend ${CMAKE_BINARY_DIR}/third_party/llvm/lib/libLLVM.dylib)
+        # Remove Homebrew LLVM lib dir from shared linker flags so that the patched
+        # LLVM (via target_link_directories BEFORE below) takes precedence over
+        # the unpatched Homebrew LLVM when resolving -lLLVM.
+        string(REGEX REPLACE "-L/opt/homebrew/opt/llvm[^ ]*" ""
+               CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}")
+        target_link_libraries(cangjie-frontend -lLLVM)
     elseif(MINGW)
 	    target_link_libraries(cangjie-frontend -lLLVM-15 -lLLVM-Foundation-15)
     else()
