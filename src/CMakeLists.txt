@@ -383,13 +383,13 @@ if (CANGJIE_CODEGEN_CJNATIVE_BACKEND)
         endif() 
     endif()
     if(DARWIN)
-        target_link_libraries(cangjie-frontend -lLLVM)
+        target_link_libraries(cangjie-frontend ${CMAKE_BINARY_DIR}/third_party/llvm/lib/libLLVM.dylib)
     elseif(MINGW)
 	    target_link_libraries(cangjie-frontend -lLLVM-15 -lLLVM-Foundation-15)
     else()
         target_link_libraries(cangjie-frontend -lLLVM-15)
     endif()
-    target_link_directories(cangjie-frontend PUBLIC ${CMAKE_BINARY_DIR}/third_party/llvm/lib)
+    target_link_directories(cangjie-frontend BEFORE PUBLIC ${CMAKE_BINARY_DIR}/third_party/llvm/lib)
     install(
         TARGETS cangjie-frontend
         RUNTIME DESTINATION tools/bin
