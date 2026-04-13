@@ -46,13 +46,13 @@ target_link_libraries(
     TestCompilerInstanceObject)
 add_test(NAME CommentsTest COMMAND CommentsTest)
 
-add_executable(SemanticVersionTest SemanticVersionTest.cpp)
+add_executable(APILevelVersionTest APILevelVersionTest.cpp)
 target_link_libraries(
-    SemanticVersionTest
+    APILevelVersionTest
     cangjie-lsp
     ${LINK_LIBS}
     boundscheck-static
     GTest::gtest
     GTest::gtest_main
     TestCompilerInstanceObject)
-add_test(NAME SemanticVersionTest COMMAND SemanticVersionTest)
+add_test(NAME APILevelVersionTest COMMAND APILevelVersionTest)

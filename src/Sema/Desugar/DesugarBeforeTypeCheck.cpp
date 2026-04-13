@@ -23,7 +23,7 @@
 #include "cangjie/AST/Types.h"
 #include "cangjie/AST/Utils.h"
 #include "cangjie/AST/Walker.h"
-#include "cangjie/Basic/SemanticVersion.h"
+#include "cangjie/Basic/APILevelVersion.h"
 #include "cangjie/Utils/CheckUtils.h"
 #include "cangjie/Utils/Utils.h"
 
@@ -471,10 +471,10 @@ const std::string SDK_API_VERSION = "sdkApiVersion";
 const std::string CANIUSE_IDENTIFIER = "canIUse";
 
 // Before desugar: `@IfAvaliable(level: 11, {=>...}, {=>...})`
-// Desugar as: `if (DeviceInfo.sdkApiVersion >= 11000000) {...} else {...}`
-// Also supports: `@IfAvailable(level: "20.0.0", {=>...}, {=>...})`
-// Desugar as: `if (DeviceInfo.sdkApiVersion >= 20000000) {...} else {...}`
-// Semantic version encoding: major * 1_000_000 + minor * 1_000 + patch
+// Desugar as: `if (DeviceInfo.sdkApiVersion >= 11) {...} else {...}`
+// Also supports: `@IfAvailable(level: "20.1.0", {=>...}, {=>...})`
+// Desugar as: `if (DeviceInfo.sdkApiVersion >= 20001000) {...} else {...}`
+// For string-form, encoding: major * 1_000_000 + minor * 1_000 + patch
 OwnedPtr<Expr> DesugarIfAvailableLevelCondition(IfAvailableExpr& iae)
 {
     auto me = CreateMemberAccess(CreateRefExpr(SrcIdentifier(DEVICE_INFO)), SDK_API_VERSION);
@@ -482,18 +482,16 @@ OwnedPtr<Expr> DesugarIfAvailableLevelCondition(IfAvailableExpr& iae)
     OwnedPtr<Expr> levelExpr;
     if (iae.GetArg()->expr && iae.GetArg()->expr->astKind == ASTKind::LIT_CONST_EXPR) {
         auto lce = StaticCast<LitConstExpr>(iae.GetArg()->expr.get());
-        uint64_t encodedVersion;
         if (lce->kind == LitConstKind::STRING) {
-            encodedVersion = Cangjie::SemanticVersion::Parse(lce->stringValue).ToEncoded();
+            // String form "x.y.z": encode to x*1_000_000 + y*1_000 + z
+            uint64_t encodedVersion = Cangjie::APILevelVersion::Parse(lce->stringValue).ToEncoded();
+            levelExpr = CreateLitConstExpr(LitConstKind::INTEGER, std::to_string(encodedVersion), lce->ty);
+            CopyBasicInfo(lce, levelExpr.get());
         } else {
-            // Integer literal: treat as major version only (20 -> 20000000)
-            encodedVersion = Cangjie::SemanticVersion(
-                static_cast<uint32_t>(std::stoull(lce->stringValue))).ToEncoded();
+            // Integer form N: keep as-is for backward compatibility
+            levelExpr = std::move(iae.GetArg()->expr);
         }
-        levelExpr = CreateLitConstExpr(LitConstKind::INTEGER, std::to_string(encodedVersion), lce->ty);
-        CopyBasicInfo(lce, levelExpr.get());
     } else {
-        // Use the expression as is (shouldn't happen in normal flow)
         levelExpr = std::move(iae.GetArg()->expr);
     }
 

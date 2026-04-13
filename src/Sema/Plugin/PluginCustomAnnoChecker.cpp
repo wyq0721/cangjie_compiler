@@ -61,7 +61,7 @@ void ParseLevel(const Expr& e, PluginCustomAnnoInfo& apilevel, DiagnosticEngine&
         return;
     }
     // Integer literal: treat as major version (20 -> 20.0.0)
-    auto newLevel = SemanticVersion::Parse(lce->stringValue);
+    auto newLevel = APILevelVersion::Parse(lce->stringValue);
     if (apilevel.since.IsZero()) {
         apilevel.since = newLevel;
     } else if (newLevel < apilevel.since) {
@@ -83,13 +83,13 @@ void ParseSince(const Expr& e, PluginCustomAnnoInfo& apilevel, DiagnosticEngine&
         diag.DiagnoseRefactor(DiagKindRefactor::sema_only_literal_support, e, "string");
         return;
     }
-    if (!SemanticVersion::IsValidFormat(lce->stringValue)) {
+    if (!APILevelVersion::IsValidFormat(lce->stringValue)) {
         diag.DiagnoseRefactor(DiagKindRefactor::sema_apilevel_invalid_version_format, e,
             lce->stringValue.c_str());
         return;
     }
     // Parse full semantic version from string
-    auto newLevel = SemanticVersion::Parse(lce->stringValue);
+    auto newLevel = APILevelVersion::Parse(lce->stringValue);
     if (apilevel.since.IsZero()) {
         apilevel.since = newLevel;
     } else if (newLevel < apilevel.since) {
@@ -290,7 +290,7 @@ void PluginCustomAnnoChecker::ParseOption() noexcept
     auto& option = ci.invocation.globalOptions;
     auto found = option.passedWhenKeyValue.find(std::string(CFG_PARAM_LEVEL_NAME));
     if (found != option.passedWhenKeyValue.end()) {
-        globalLevel = SemanticVersion::Parse(found->second);
+        globalLevel = APILevelVersion::Parse(found->second);
         optionWithLevel = true;
     }
     found = option.passedWhenKeyValue.find(std::string(CFG_PARAM_SYSCAP_NAME));
@@ -523,13 +523,13 @@ bool PluginCustomAnnoChecker::CheckLevel(
     if (!optionWithLevel) {
         return true;
     }
-    SemanticVersion scopeLevel = !scopeAnnoInfo.since.IsZero() ? scopeAnnoInfo.since : globalLevel;
+    APILevelVersion scopeLevel = !scopeAnnoInfo.since.IsZero() ? scopeAnnoInfo.since : globalLevel;
     PluginCustomAnnoInfo targetAPILevel;
     Parse(target, targetAPILevel);
     if (targetAPILevel.since > scopeLevel && !diagCfg.node->begin.IsZero()) {
         if (diagCfg.reportDiag && !diagCfg.message.empty()) {
             diag.DiagnoseRefactor(DiagKindRefactor::sema_apilevel_ref_higher, *diagCfg.node, diagCfg.message[0],
-                targetAPILevel.since.ToString(), scopeLevel.ToString());
+                targetAPILevel.since.ToDisplayString(), scopeLevel.ToDisplayString());
         }
         return false;
     }
@@ -642,7 +642,7 @@ void PluginCustomAnnoChecker::CheckIfAvailableExpr(IfAvailableExpr& iae, PluginC
     }
     auto ifscopeAnnoInfo = PluginCustomAnnoInfo();
     parseNameParam[arg->name.Val()](*ifExpr->condExpr, ifscopeAnnoInfo, diag);
-    if (!ifscopeAnnoInfo.since.IsZero() && ifscopeAnnoInfo.since < SemanticVersion(IFAVAILABLE_LOWER_LIMITLEVEL)) {
+    if (!ifscopeAnnoInfo.since.IsZero() && ifscopeAnnoInfo.since < APILevelVersion(IFAVAILABLE_LOWER_LIMITLEVEL)) {
         diag.DiagnoseRefactor(DiagKindRefactor::sema_ifavailable_level_limit, *arg);
         return;
     }
