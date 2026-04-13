@@ -15,6 +15,10 @@
 #ifdef __unix__
 #include <cstdlib>
 #include <unistd.h>
+#elif defined(__APPLE__)
+#include <cstdlib>
+#include <mach-o/dyld.h>
+#include <unistd.h>
 #elif _WIN32
 #include <windows.h>
 #endif
@@ -34,7 +38,7 @@ const std::string PRPJECT_PATH = PROJECT_SOURCE_DIR;
 const std::string PRPJECT_PATH = "..";
 #endif
 
-#ifdef __unix__
+#if defined(__unix__) || defined(__APPLE__)
 const int STACK_OVERFLOW_RETURN_CODE = SIGSEGV + 128;
 const std::unordered_map<std::string, int> signalStringValueMap = {{"SIGABRT", SIGABRT}, {"SIGFPE", SIGFPE},
     {"SIGSEGV", SIGSEGV}, {"SIGILL", SIGILL}, {"SIGTRAP", SIGTRAP}, {"SIGBUS", SIGBUS}};
@@ -97,7 +101,7 @@ std::string GetSignalString(std::string& signalValue, std::string& module)
     std::string result2 =
         Cangjie::SIGNAL_MSG_PART_TWO + Cangjie::ICE::MSG_PART_TWO + std::to_string(moduleStr->second) + "\n";
     if (signalValue == "StackOverflow") {
-#ifdef __unix__
+#if defined(__unix__) || defined(__APPLE__)
         return CANGJIE_COMPILER_VERSION + "\n" + result1 + std::to_string(SIGSEGV) + result2;
 #elif _WIN32
         return CANGJIE_COMPILER_VERSION + "\n" + result1 + std::to_string(STACK_OVERFLOW_RETURN_CODE) + result2;
@@ -146,7 +150,7 @@ void VerifyErrorOutput(std::string signalValue, std::string module)
     VerifyDeleteTempFile();
 }
 
-#ifdef __unix__
+#if defined(__unix__) || defined(__APPLE__)
 
 #define MAX_PATH 4096
 
@@ -156,9 +160,16 @@ int ExecuteProcess(std::string signalValue, std::string triggerPoint)
     ss << signalValue << "_" << triggerPoint << "_" << TEMP_ERROR_OUTPUT_NAME;
     std::string commandLine = ss.str();
     char buffer[MAX_PATH] = {0};
+#ifdef __unix__
     if (readlink("/proc/self/exe", buffer, MAX_PATH) == -1) {
         return -1;
     }
+#elif defined(__APPLE__)
+    uint32_t bufSize = MAX_PATH;
+    if (_NSGetExecutablePath(buffer, &bufSize) != 0) {
+        return -1;
+    }
+#endif
     std::string exePath = FileUtil::GetDirPath(std::string(buffer)) + "/SignalTestCJC";
     pid_t pid;
     pid_t wpid;
@@ -231,7 +242,7 @@ CT(SIGABRT, main)
 CT(SIGFPE, main)
 CT(SIGSEGV, main)
 CT(SIGILL, main)
-#if __unix__
+#if defined(__unix__) || defined(__APPLE__)
 CT(SIGTRAP, main)
 CT(SIGBUS, main)
 #endif
@@ -241,7 +252,7 @@ CT(SIGABRT, parser)
 CT(SIGFPE, parser)
 CT(SIGSEGV, parser)
 CT(SIGILL, parser)
-#if __unix__
+#if defined(__unix__) || defined(__APPLE__)
 CT(SIGTRAP, parser)
 CT(SIGBUS, parser)
 #endif
