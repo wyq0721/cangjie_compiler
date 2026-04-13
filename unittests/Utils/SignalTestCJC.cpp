@@ -28,7 +28,7 @@ SIGCBF(SIGFPE)
 SIGCBF(SIGSEGV)
 SIGCBF(SIGILL)
 
-#ifdef __unix__
+#if defined(__unix__) || defined(__APPLE__)
 SIGCBF(SIGTRAP)
 SIGCBF(SIGBUS)
 #endif
@@ -58,7 +58,7 @@ void StackOverflowCallback()
     RecursiveFunction(a, arraySize);
 }
 
-#ifdef __unix__
+#if defined(__unix__) || defined(__APPLE__)
 const std::unordered_map<std::string, Cangjie::SignalTest::SignalTestCallbackFuncType> signalStringCallbackFuncMap = {
     {"SIGABRT", SIGABRTCallback}, {"SIGFPE", SIGFPECallback}, {"SIGSEGV", SIGSEGVCallback}, {"SIGILL", SIGILLCallback},
     {"SIGTRAP", SIGTRAPCallback}, {"SIGBUS", SIGBUSCallback}, {"StackOverflow", StackOverflowCallback},
