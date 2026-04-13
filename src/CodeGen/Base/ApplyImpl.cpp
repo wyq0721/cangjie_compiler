@@ -207,7 +207,7 @@ inline bool HasAddrSpace(const CGValue* cgVal, unsigned int addrSpace)
 #ifdef __APPLE__
 inline void AddAttrForIntTypeArgOnMacMx(llvm::CallBase& callRet, llvm::Function& callee, unsigned argIdx)
 {
-    CJC_ASSERT(callRet.arg_size() == callee.arg_size());
+    // Note: callRet.arg_size() may differ from callee.arg_size() in sret/vararg cases.
     if (argIdx >= callRet.arg_size()) {
         return;
     }
