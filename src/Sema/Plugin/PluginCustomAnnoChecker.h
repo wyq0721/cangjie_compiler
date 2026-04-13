@@ -13,13 +13,14 @@
 #ifndef PLUGIN_CUSTOM_ANNO_CHECKER_H
 #define PLUGIN_CUSTOM_ANNO_CHECKER_H
 
+#include <optional>
 #include <set>
 #include <string>
-#include <set>
 
 #include "cangjie/AST/Node.h"
 #include "cangjie/AST/NodeX.h"
 #include "cangjie/Basic/DiagnosticEngine.h"
+#include "cangjie/Basic/SemanticVersion.h"
 #include "cangjie/Frontend/CompilerInstance.h"
 #include "cangjie/Modules/ImportManager.h"
 #include "cangjie/Option/Option.h"
@@ -27,6 +28,8 @@
 
 namespace Cangjie {
 namespace PluginCheck {
+
+using SemanticVersion = Cangjie::SemanticVersion;
 
 /**
  * It should same as cangjie code follow:
@@ -62,13 +65,11 @@ namespace PluginCheck {
  * ```
  */
 
-using LevelType = uint32_t;
-
 /**
  * @brief Structure to hold custom annotation information.
  */
 struct PluginCustomAnnoInfo {
-    LevelType since{0};
+    SemanticVersion since;
     std::string syscap{""};
     std::optional<bool> hasHideAnno{std::nullopt};
 };
@@ -123,7 +124,7 @@ private:
     ImportManager& importManager;
     Ptr<ASTContext> ctx;
 
-    LevelType globalLevel{0};
+    SemanticVersion globalLevel;
     SysCapSet intersectionSet;
     SysCapSet unionSet;
     std::unordered_map<Ptr<const AST::Decl>, PluginCustomAnnoInfo> levelCache;
