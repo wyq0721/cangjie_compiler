@@ -156,7 +156,7 @@ public:
     // ===--------------------------------------------------------------------===//
     // BlockGroup API
     // ===--------------------------------------------------------------------===//
-    BlockGroup* CreateBlockGroup(Func& func);
+    BlockGroup* CreateBlockGroup(Function& func);
 
     // ===--------------------------------------------------------------------===//
     // Basic Block API
@@ -174,11 +174,11 @@ public:
         this->allocatedValues.push_back(litVal);
         return litVal;
     }
-    Parameter* CreateParameter(Type* ty, const DebugLocation& loc, Func& parentFunc);
+    Parameter* CreateParameter(Type* ty, const DebugLocation& loc, Function& parentFunc);
     Parameter* CreateParameter(Type* ty, const DebugLocation& loc, Lambda& parentLambda);
-    GlobalVar* CreateGlobalVar(const DebugLocation& loc, RefType* ty, const std::string& mangledName,
-        const std::string& srcCodeIdentifier, const std::string& rawMangledName, const std::string& packageName,
-        std::set<std::string> features = {});
+
+    GlobalVar* CreateGlobalVar(Type* ty, const std::string& mangledName,
+        const std::string& srcCodeIdentifier, const std::string& rawMangledName, const std::string& packageName);
     // ===--------------------------------------------------------------------===//
     // Expression API
     // ===--------------------------------------------------------------------===//
@@ -264,9 +264,10 @@ public:
         return expr;
     }
 
-    Func* CreateFunc(const DebugLocation& loc, FuncType* funcTy, const std::string& mangledName,
+    Function* CreateFunction(FuncType* funcTy, const std::string& mangledName,
         const std::string& srcCodeIdentifier, const std::string& rawMangledName, const std::string& packageName,
-        const std::vector<GenericType*>& genericTypeParams = {}, std::set<std::string> features = {});
+        const std::vector<GenericType*>& genericTypeParams = {});
+    
     // ===--------------------------------------------------------------------===//
     // StructDef API
     // ===--------------------------------------------------------------------===//
@@ -295,28 +296,6 @@ public:
     Package* CreatePackage(const std::string& name);
     Package* GetCurPackage() const;
 
-    template <typename T>
-    T* CreateImportedVarOrFunc(Type* ty, const std::string& mangledName, const std::string& srcCodeIdentifier,
-        const std::string& rawMangledName, const std::string& srcPackageName,
-        const std::vector<GenericType*>& genericTypeParams = {}, bool addToIR = true)
-    {
-        T* importDecl = nullptr;
-        if constexpr (std::is_same_v<T, ImportedFunc>) {
-            importDecl = new ImportedFunc(ty, GLOBAL_VALUE_PREFIX + mangledName,
-                srcCodeIdentifier, rawMangledName, srcPackageName, genericTypeParams);
-        } else {
-            importDecl = new ImportedVar(ty, GLOBAL_VALUE_PREFIX + mangledName,
-                srcCodeIdentifier, rawMangledName, srcPackageName);
-        }
-        CJC_NULLPTR_CHECK(importDecl);
-        importDecl->EnableAttr(Attribute::IMPORTED);
-        this->allocatedValues.push_back(importDecl);
-        if (context.GetCurPackage() != nullptr && addToIR) {
-            context.GetCurPackage()->AddImportedVarAndFunc(importDecl);
-        }
-        return importDecl;
-    }
-
     void SetCompileTimeValueMark(bool val)
     {
         markAsCompileTimeValue = val;
@@ -325,11 +304,6 @@ public:
     bool GetCompileTimeValueMark() const
     {
         return markAsCompileTimeValue;
-    }
-
-    void SetCompileCJMP(bool val)
-    {
-        compileCJMP = val;
     }
 
     CHIRContext& GetChirContext()
@@ -383,7 +357,6 @@ private:
 
     // A flag indicate if the created CHIR value/expression should be marked as compile time value for const evaluation
     bool markAsCompileTimeValue = false;
-    bool compileCJMP = false;
     bool enableIRCheckerAfterPlugin = true;
     size_t threadIdx;
     std::vector<Value*> allocatedValues;

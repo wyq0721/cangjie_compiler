@@ -207,7 +207,7 @@ inline bool HasAddrSpace(const CGValue* cgVal, unsigned int addrSpace)
 #ifdef __APPLE__
 inline void AddAttrForIntTypeArgOnMacMx(llvm::CallBase& callRet, llvm::Function& callee, unsigned argIdx)
 {
-    CJC_ASSERT(callRet.arg_size() == callee.arg_size());
+    // Note: callRet.arg_size() may differ from callee.arg_size() in sret/vararg cases.
     if (argIdx >= callRet.arg_size()) {
         return;
     }
@@ -387,10 +387,9 @@ llvm::Value* CodeGen::GenerateApply(IRBuilder2& irBuilder, const CHIRApplyWrappe
     if (apply.IsCalleeStatic()) {
         auto curCGFunc = irBuilder.GetInsertCGFunction();
         CJC_ASSERT(curCGFunc != nullptr);
-        auto curCHIRFunc = DynamicCast<const CHIR::Func*>(&curCGFunc->GetOriginal());
-        CJC_ASSERT(curCHIRFunc != nullptr);
-        auto curCHIRFuncParentTy = curCHIRFunc->GetParentCustomTypeOrExtendedType();
-        auto calleeFunc = DynamicCast<const CHIR::FuncBase*>(apply.GetCallee());
+        const auto& curCHIRFunc = StaticCast<const CHIR::Function&>(curCGFunc->GetOriginal());
+        auto curCHIRFuncParentTy = curCHIRFunc.GetParentCustomTypeOrExtendedType();
+        auto calleeFunc = DynamicCast<const CHIR::Function*>(apply.GetCallee());
         CJC_NULLPTR_CHECK(calleeFunc);
         auto calleeFuncParentTy = calleeFunc->GetParentCustomTypeOrExtendedType();
         auto curFunc = irBuilder.GetInsertFunction();

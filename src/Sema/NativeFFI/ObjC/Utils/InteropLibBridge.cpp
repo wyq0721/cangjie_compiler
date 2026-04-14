@@ -20,6 +20,7 @@ using namespace Cangjie::Interop::ObjC;
 
 namespace {
 
+constexpr auto INTEROPLIB_OBJ_C_ID = "ObjCId";
 constexpr auto INTEROPLIB_NATIVE_OBJ_C_ID = "NativeObjCId";
 constexpr auto INTEROPLIB_NATIVE_OBJ_C_SEL = "NativeObjCSel";
 constexpr auto INTEROPLIB_NATIVE_OBJ_C_SUPER_PTR = "NativeObjCSuperPtr";
@@ -43,6 +44,7 @@ constexpr auto INTEROPLIB_OBJ_C_SET_INSTANCE_VARIABLE_OBJ = "setInstanceVariable
 constexpr auto INTEROPLIB_OBJ_C_GET_INSTANCE_VARIABLE = "getInstanceVariable";
 constexpr auto INTEROPLIB_OBJ_C_SET_INSTANCE_VARIABLE = "setInstanceVariable";
 constexpr auto INTEROPLIB_OBJ_C_GET_CLASS = "getClass";
+constexpr auto INTEROPLIB_OBJ_C_GET_PROTOCOL = "getProtocol";
 constexpr auto INTEROPLIB_OBJ_C_GET_SUPER_CLASS = "getSuperClass";
 constexpr auto INTEROPLIB_OBJ_C_WITH_METHOD_ENV = "withMethodEnv";
 constexpr auto INTEROPLIB_OBJ_C_WITH_METHOD_ENV_OBJ = "withMethodEnvObj";
@@ -59,6 +61,10 @@ constexpr auto MUTEX_UNLOCK_IDENT = "unlock";
 constexpr auto INTEROPLIB_OBJC_STORE_LAMBDA_AS_BLOCK = "registerCangjieLambdaAsBlock";
 constexpr auto INTEROPLIB_OBJC_GET_LAMBDA_FROM_BLOCK = "getCangjieLambdaFromBlock";
 constexpr auto INTEROPLIB_OBJ_C_OBJECT_GET_CLASS = "objectGetClass";
+constexpr auto INTEROPLIB_OBJ_C_IS_KIND_OF_CLASS = "isKindOfClass";
+constexpr auto INTEROPLIB_OBJ_C_CONFORMS_TO_PROTOCOL = "conformsToProtocol";
+constexpr auto INTEROPLIB_OBJ_C_CONVERT_TO_NSSTRING = "convertToNSString";
+constexpr auto INTEROPLIB_OBJ_C_DESCRIPTION_AS_STRING = "descriptionAsString";
 
 // objc.lang
 constexpr auto OBJ_C_FUNC_GET_FPOINTER = "unsafeGetFunctionPointer";
@@ -152,6 +158,12 @@ Ptr<FuncDecl> InteropLibBridge::GetMutexConstructor()
 Ptr<TypeAliasDecl> InteropLibBridge::GetNativeObjCIdDecl()
 {
     static auto decl = GetInteropLibDecl<ASTKind::TYPE_ALIAS_DECL>(INTEROPLIB_NATIVE_OBJ_C_ID);
+    return decl;
+}
+
+Ptr<InterfaceDecl> InteropLibBridge::GetObjCIdDecl()
+{
+    static auto decl = GetObjCLangDecl<ASTKind::INTERFACE_DECL>(INTEROPLIB_OBJ_C_ID);
     return decl;
 }
 
@@ -296,6 +308,11 @@ Ptr<FuncDecl> InteropLibBridge::GetGetClassDecl()
     return decl;
 }
 
+Ptr<FuncDecl> InteropLibBridge::GetGetProtoDecl()
+{
+    static auto decl = GetInteropLibDecl<ASTKind::FUNC_DECL>(INTEROPLIB_OBJ_C_GET_PROTOCOL);
+    return decl;
+}
 
 Ptr<FuncDecl> InteropLibBridge::GetGetSuperClassDecl()
 {
@@ -354,6 +371,30 @@ Ptr<FuncDecl> InteropLibBridge::GetObjCAutoReleaseDecl()
 Ptr<FuncDecl> InteropLibBridge::GetWithObjCSuperDecl()
 {
     static auto decl = GetInteropLibDecl<ASTKind::FUNC_DECL>(INTEROPLIB_OBJ_C_WITH_OBJ_C_SUPER);
+    return decl;
+}
+
+Ptr<FuncDecl> InteropLibBridge::GetObjCIsKindOfClassDecl()
+{
+    static auto decl = GetInteropLibDecl<ASTKind::FUNC_DECL>(INTEROPLIB_OBJ_C_IS_KIND_OF_CLASS);
+    return decl;
+}
+
+Ptr<FuncDecl> InteropLibBridge::GetObjCConformsToProtocolDecl()
+{
+    static auto decl = GetInteropLibDecl<ASTKind::FUNC_DECL>(INTEROPLIB_OBJ_C_CONFORMS_TO_PROTOCOL);
+    return decl;
+}
+
+Ptr<FuncDecl> InteropLibBridge::GetConvertToNSStringDecl()
+{
+    static auto decl = GetInteropLibDecl<ASTKind::FUNC_DECL>(INTEROPLIB_OBJ_C_CONVERT_TO_NSSTRING);
+    return decl;
+}
+
+Ptr<FuncDecl> InteropLibBridge::GetDescriptionAsStringDecl()
+{
+    static auto decl = GetInteropLibDecl<ASTKind::FUNC_DECL>(INTEROPLIB_OBJ_C_DESCRIPTION_AS_STRING);
     return decl;
 }
 

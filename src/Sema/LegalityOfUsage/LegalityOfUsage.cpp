@@ -14,6 +14,7 @@
 
 #include "Diags.h"
 #include "InitializationChecker.h"
+#include "cangjie/Utils/ProfileRecorder.h"
 
 namespace Cangjie {
 using namespace AST;
@@ -71,6 +72,7 @@ void SetFuncBodyCaptureKind(FuncBody& fb)
 
 void TypeChecker::TypeCheckerImpl::CheckLegalityOfUsage(ASTContext& ctx, AST::Package& pkg)
 {
+    Utils::ProfileRecorder recorder("Post TypeCheck", "CheckLegalityOfUsage");
     // Check whether value type decl contains value type recursive dependency.
     CheckValueTypeRecursive(pkg);
     // Check legality of reference usage.
@@ -130,8 +132,9 @@ void TypeChecker::TypeCheckerImpl::CheckStaticMemberWithGeneric(
             ref.target->outerDecl->ty->HasGeneric();
         if (needDiag) {
             Sema::DiagForStaticVariableDependsGeneric(diag, *node, ref.target->outerDecl->ty->GetGenericTyArgs());
+            return VisitAction::SKIP_CHILDREN;
         }
-        return VisitAction::SKIP_CHILDREN;
+        return VisitAction::WALK_CHILDREN;
     };
     Walker(&member, preVisitor).Walk();
 }

@@ -269,12 +269,6 @@ Value::ValueKind DeSerialize(const PackageFormat::ValueKind& kind)
         case ValueKind_PARAMETER:
             ret = Value::ValueKind::KIND_PARAMETER;
             break;
-        case ValueKind_IMPORTED_FUNC:
-            ret = Value::ValueKind::KIND_IMP_FUNC;
-            break;
-        case ValueKind_IMPORTED_VAR:
-            ret = Value::ValueKind::KIND_IMP_VAR;
-            break;
         case ValueKind_LOCALVAR:
             ret = Value::ValueKind::KIND_LOCALVAR;
             break;
@@ -1752,6 +1746,9 @@ IntrinsicKind DeSerialize(const PackageFormat::IntrinsicKind& kind)
             break;
         case IntrinsicKind_EXCLUSIVE_SCOPE:
             ret = EXCLUSIVE_SCOPE;
+            break;
+        case IntrinsicKind_GET_JSLAMBDA_ADDR:
+            ret = GET_JSLAMBDA_ADDR;
             break;
     }
     return ret;

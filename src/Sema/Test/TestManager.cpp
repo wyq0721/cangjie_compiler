@@ -576,13 +576,13 @@ void TestManager::ReplaceCallsWithAccessors(Package& pkg)
             return VisitAction::SKIP_CHILDREN;
         }
 
+        if (!MockSupportManager::NeedToSearchCallsToReplaceWithAccessors(*node)) {
+            return VisitAction::SKIP_CHILDREN;
+        }
+
         if (node->TestAttr(Attribute::CONSTRUCTOR)) {
             isInConstructor = true;
             return VisitAction::WALK_CHILDREN;
-        }
-
-        if (!MockSupportManager::NeedToSearchCallsToReplaceWithAccessors(*node)) {
-            return VisitAction::SKIP_CHILDREN;
         }
 
         if (auto expr = As<ASTKind::EXPR>(node); expr) {
@@ -818,7 +818,6 @@ void TestManager::PrepareToMock(AST::Package& pkg)
     if (pkg.files.empty()) {
         return;
     }
-
     // FIXME: Load decls lazy
     if (mockUtils) {
         mockUtils->LoadStdDecls();

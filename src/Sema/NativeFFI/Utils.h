@@ -20,6 +20,11 @@
 #include "cangjie/Sema/TypeManager.h"
 
 namespace Cangjie::Native::FFI {
+constexpr std::string_view NSSTRING_CLASS_IDENT = "NSString";
+constexpr std::string_view NSOBJECT_CLASS_IDENT = "NSObject";
+constexpr std::string_view TOSTRING_METHOD_IDENT = "toString";
+constexpr std::string_view INIT_IDENT = "init";
+
 using namespace AST;
 
 /*
@@ -165,6 +170,10 @@ Ptr<Annotation> GetForeignNameAnnotation(const Decl& decl);
 Ptr<Annotation> GetAnnotation(const Decl& decl, AnnotationKind annotationKind);
 
 Ptr<std::string> GetSingleArgumentAnnotationValue(const Decl& target, AnnotationKind annotationKind);
+std::string GetObjCMirrorForeignName(const ClassLikeDecl& target);
+bool IsObjCGeneratedNSStringCtor(const Decl& target);
+bool IsObjCGeneratedNSObjectToString(const Decl& target);
+bool IsObjCGeneratedMember(const Decl& target);
 
 bool IsSuperConstructorCall(const CallExpr& call);
 bool IsThisConstructorCall(const CallExpr& call);

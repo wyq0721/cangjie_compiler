@@ -130,6 +130,8 @@ public:
     OwnedPtr<AST::CallExpr> CreateRegisterNameCall(const std::string& selector, Ptr<AST::File> curFile);
     OwnedPtr<AST::Expr> CreateGetClassCall(const AST::ClassLikeDecl& ty, Ptr<AST::File> curFile);
     OwnedPtr<AST::Expr> CreateGetClassCall(AST::ClassLikeTy& ty, Ptr<AST::File> curFile);
+    OwnedPtr<AST::Expr> CreateGetClassCall(std::string& className, Ptr<AST::File> curFile);
+    OwnedPtr<AST::Expr> CreateGetProtoCall(std::string& protoName, Ptr<AST::File> curFile);
     OwnedPtr<AST::Expr> CreateObjCRespondsToSelectorCall(OwnedPtr<AST::Expr> id, OwnedPtr<AST::Expr> sel, Ptr<AST::File> file);
     OwnedPtr<AST::Expr> CreateGetSuperClassExpr(OwnedPtr<AST::Expr> objCSuper, Ptr<AST::File> file);
 
@@ -195,6 +197,10 @@ public:
      * objCRelease($obj)
      */
     OwnedPtr<AST::Expr> CreateObjCReleaseCall(OwnedPtr<AST::Expr> nativeHandle);
+    OwnedPtr<AST::Expr> CreateObjCIsKindOfClassCall(OwnedPtr<AST::Expr> id, OwnedPtr<AST::Expr> cls,
+        Ptr<AST::File> file);
+    OwnedPtr<AST::Expr> CreateObjCConformsToProtocolCall(OwnedPtr<AST::Expr> id, OwnedPtr<AST::Expr> cls,
+        Ptr<AST::File> file);
     OwnedPtr<AST::Expr> CreateWithMethodEnvScope(OwnedPtr<AST::Expr> nativeHandle, AST::ClassDecl& outerDecl, Ptr<AST::Ty> retTy,
         std::function<std::vector<OwnedPtr<AST::Node>>(OwnedPtr<AST::Expr>, OwnedPtr<AST::Expr>)> bodyFactory);
     OwnedPtr<AST::Expr> CreateWithObjCSuperScope(OwnedPtr<AST::Expr> nativeHandle, AST::ClassDecl& outerDecl, Ptr<AST::Ty> retTy,
@@ -232,6 +238,9 @@ public:
     OwnedPtr<AST::Expr> CreateNativeLambdaForBlockType(AST::Ty& ty, Ptr<AST::File> curFile);
     OwnedPtr<AST::Expr> CreateObjCBlockFromLambdaCall(OwnedPtr<AST::Expr> funcExpr);
     OwnedPtr<AST::Expr> CreateObjectGetClassCall(OwnedPtr<AST::Expr> id, Ptr<AST::File> curFile);
+    OwnedPtr<AST::Expr> CreateConvertToNSStringCall(OwnedPtr<AST::Expr> id, AST::ClassDecl& classDecl,
+        Ptr<AST::File> curFile);
+    OwnedPtr<AST::Expr> CreateDescriptionAsStringCall(OwnedPtr<AST::Expr> id);
 
 private:
     void PutDeclToClassLikeBody(AST::Decl& decl, AST::ClassLikeDecl& target);

@@ -40,16 +40,11 @@ constexpr std::string_view SYSCAP_IDENTIFIER = "syscap";
 constexpr std::string_view CFG_PARAM_LEVEL_NAME = "APILevel_level";
 constexpr std::string_view CFG_PARAM_SYSCAP_NAME = "APILevel_syscap";
 // For level check:
-const LevelType IFAVAILABLE_LOWER_LIMITLEVEL = 19;
+constexpr uint32_t IFAVAILABLE_LOWER_LIMITLEVEL = 19;
 
 // For Annotation Hide:
 constexpr std::string_view HIDE_ANNO_NAME = "Hide";
 constexpr std::string_view HIDE_ARG_NAME = "isChecked";
-
-LevelType Str2LevelType(std::string s)
-{
-    return static_cast<LevelType>(Stoull(s).value_or(0));
-}
 
 void ParseLevel(const Expr& e, PluginCustomAnnoInfo& apilevel, DiagnosticEngine& diag)
 {
@@ -65,8 +60,13 @@ void ParseLevel(const Expr& e, PluginCustomAnnoInfo& apilevel, DiagnosticEngine&
         diag.DiagnoseRefactor(DiagKindRefactor::sema_only_literal_support, e, "integer");
         return;
     }
-    auto newLevel = Str2LevelType(lce->stringValue);
-    apilevel.since = apilevel.since == 0 ? newLevel : std::min(newLevel, apilevel.since);
+    // Integer literal: treat as major version (20 -> 20.0.0)
+    auto newLevel = APILevelVersion::Parse(lce->stringValue);
+    if (apilevel.since.IsZero()) {
+        apilevel.since = newLevel;
+    } else if (newLevel < apilevel.since) {
+        apilevel.since = newLevel;
+    }
 }
 
 void ParseSince(const Expr& e, PluginCustomAnnoInfo& apilevel, DiagnosticEngine& diag)
@@ -83,8 +83,18 @@ void ParseSince(const Expr& e, PluginCustomAnnoInfo& apilevel, DiagnosticEngine&
         diag.DiagnoseRefactor(DiagKindRefactor::sema_only_literal_support, e, "string");
         return;
     }
-    auto newLevel = Str2LevelType(lce->stringValue);
-    apilevel.since = apilevel.since == 0 ? newLevel : std::min(newLevel, apilevel.since);
+    if (!APILevelVersion::IsValidFormat(lce->stringValue)) {
+        diag.DiagnoseRefactor(DiagKindRefactor::sema_apilevel_invalid_version_format, e,
+            lce->stringValue.c_str());
+        return;
+    }
+    // Parse full semantic version from string
+    auto newLevel = APILevelVersion::Parse(lce->stringValue);
+    if (apilevel.since.IsZero()) {
+        apilevel.since = newLevel;
+    } else if (newLevel < apilevel.since) {
+        apilevel.since = newLevel;
+    }
 }
 
 void ParseSysCap(const Expr& e, PluginCustomAnnoInfo& apilevel, DiagnosticEngine& diag)
@@ -280,7 +290,7 @@ void PluginCustomAnnoChecker::ParseOption() noexcept
     auto& option = ci.invocation.globalOptions;
     auto found = option.passedWhenKeyValue.find(std::string(CFG_PARAM_LEVEL_NAME));
     if (found != option.passedWhenKeyValue.end()) {
-        globalLevel = Str2LevelType(found->second);
+        globalLevel = APILevelVersion::Parse(found->second);
         optionWithLevel = true;
     }
     found = option.passedWhenKeyValue.find(std::string(CFG_PARAM_SYSCAP_NAME));
@@ -368,7 +378,7 @@ void PluginCustomAnnoChecker::ParseAPILevelArgs(
     }
     // In the APILevel definition, only "since" does not provide a default value. Here, the warning that
     // there is an issue with the APILevel annotation, which may originnate from the cj.d file.
-    if (annoInfo.since == 0) {
+    if (annoInfo.since.IsZero()) {
         diag.DiagnoseRefactor(DiagKindRefactor::sema_apilevel_missing_arg, anno.begin, "since!: String");
     }
 }
@@ -468,7 +478,7 @@ void PluginCustomAnnoChecker::CheckHideOfOverrideFunction(const Decl& decl, cons
 void PluginCustomAnnoChecker::Parse(const Decl& decl, PluginCustomAnnoInfo& annoInfo)
 {
     if (auto found = levelCache.find(&decl); found != levelCache.end()) {
-        annoInfo.since = annoInfo.since == 0 ? found->second.since : std::min(found->second.since, annoInfo.since);
+        annoInfo.since = annoInfo.since.IsZero() ? found->second.since : std::min(found->second.since, annoInfo.since);
         annoInfo.syscap = found->second.syscap;
         if (found->second.hasHideAnno.has_value()) {
             annoInfo.hasHideAnno = found->second.hasHideAnno;
@@ -513,13 +523,13 @@ bool PluginCustomAnnoChecker::CheckLevel(
     if (!optionWithLevel) {
         return true;
     }
-    LevelType scopeLevel = scopeAnnoInfo.since != 0 ? scopeAnnoInfo.since : globalLevel;
+    APILevelVersion scopeLevel = !scopeAnnoInfo.since.IsZero() ? scopeAnnoInfo.since : globalLevel;
     PluginCustomAnnoInfo targetAPILevel;
     Parse(target, targetAPILevel);
     if (targetAPILevel.since > scopeLevel && !diagCfg.node->begin.IsZero()) {
         if (diagCfg.reportDiag && !diagCfg.message.empty()) {
             diag.DiagnoseRefactor(DiagKindRefactor::sema_apilevel_ref_higher, *diagCfg.node, diagCfg.message[0],
-                std::to_string(targetAPILevel.since), std::to_string(scopeLevel));
+                targetAPILevel.since.ToDisplayString(), scopeLevel.ToDisplayString());
         }
         return false;
     }
@@ -632,7 +642,7 @@ void PluginCustomAnnoChecker::CheckIfAvailableExpr(IfAvailableExpr& iae, PluginC
     }
     auto ifscopeAnnoInfo = PluginCustomAnnoInfo();
     parseNameParam[arg->name.Val()](*ifExpr->condExpr, ifscopeAnnoInfo, diag);
-    if (ifscopeAnnoInfo.since != 0 && ifscopeAnnoInfo.since < IFAVAILABLE_LOWER_LIMITLEVEL) {
+    if (!ifscopeAnnoInfo.since.IsZero() && ifscopeAnnoInfo.since < APILevelVersion(IFAVAILABLE_LOWER_LIMITLEVEL)) {
         diag.DiagnoseRefactor(DiagKindRefactor::sema_ifavailable_level_limit, *arg);
         return;
     }
@@ -716,7 +726,7 @@ void PluginCustomAnnoChecker::Check(Package& pkg)
             Parse(**it, scopeAnnoInfo);
         }
         if (auto iae = DynamicCast<IfAvailableExpr>(node)) {
-            scopeAnnoInfo.since = scopeAnnoInfo.since == 0 ? globalLevel : scopeAnnoInfo.since;
+            scopeAnnoInfo.since = scopeAnnoInfo.since.IsZero() ? globalLevel : scopeAnnoInfo.since;
             CheckIfAvailableExpr(*iae, scopeAnnoInfo);
             return VisitAction::SKIP_CHILDREN;
         }

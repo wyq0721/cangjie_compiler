@@ -51,7 +51,7 @@ using GIM = GenericInstantiationManager;
 
 GIM::GenericInstantiationManagerImpl::GenericInstantiationManagerImpl(CompilerInstance& ci)
     : diag(ci.diag),
-      importManager(ci.importManager),
+      importManager(*ci.importManager),
       typeManager(*ci.typeManager),
       testManager(ci.testManager),
       promotion(*ci.typeManager),
@@ -74,8 +74,6 @@ GIM::GenericInstantiationManagerImpl::GenericInstantiationManagerImpl(CompilerIn
 }
 
 namespace {
-std::unordered_map<Ptr<const Decl>, std::vector<size_t>> g_skippedMemberOffsets = {};
-
 void UpdateInstantiatedDeclsLinkage(const Package& pkg)
 {
     // All instantiated decls should be marked as internal for cjnative backend.
@@ -227,11 +225,12 @@ void BuildGenericsTyMap(const FuncDecl& fd, TypeSubst& g2gMap)
         }
     }
 }
+} // namespace
 
-size_t CountSkippedMembersBefore(const Decl& decl, size_t offset)
+size_t GIM::GenericInstantiationManagerImpl::CountSkippedMembersBefore(const Decl& decl, size_t offset)
 {
-    auto found = g_skippedMemberOffsets.find(&decl);
-    if (found == g_skippedMemberOffsets.end()) {
+    auto found = skippedMemberOffsets.find(&decl);
+    if (found == skippedMemberOffsets.end()) {
         std::vector<size_t> offsets;
         auto members = GetRealIndexingMembers(decl.GetMemberDecls(), decl.TestAttr(Attribute::GENERIC));
         for (auto it = members.begin(); it != members.end(); ++it) {
@@ -243,7 +242,7 @@ size_t CountSkippedMembersBefore(const Decl& decl, size_t offset)
             }
             offsets.emplace_back(off);
         }
-        found = g_skippedMemberOffsets.emplace(&decl, std::move(offsets)).first;
+        found = skippedMemberOffsets.emplace(&decl, std::move(offsets)).first;
     }
     for (size_t i = 0; i < found->second.size(); ++i) {
         if (found->second[i] == offset) {
@@ -253,7 +252,7 @@ size_t CountSkippedMembersBefore(const Decl& decl, size_t offset)
     return std::numeric_limits<size_t>::max();
 }
 
-Ptr<Decl> GetMemberByOffset(const Decl& decl, size_t offset)
+Ptr<Decl> GIM::GenericInstantiationManagerImpl::GetMemberByOffset(const Decl& decl, size_t offset)
 {
     auto members = GetRealIndexingMembers(decl.GetMemberDecls(), decl.TestAttr(Attribute::GENERIC));
     auto implMemberIt = members.begin();
@@ -276,17 +275,18 @@ Ptr<Decl> GetMemberByOffset(const Decl& decl, size_t offset)
     }
     return implMemberIt->get();
 }
-} // namespace
 
 void GIM::GenericInstantiationManagerImpl::GenericInstantiatePackage(Package& pkg)
 {
     this->curPkg = &pkg;
-    Utils::ProfileRecorder::Start("GenericInstantiatePackage", "instantiate");
+    Utils::ProfileRecorder::Start("GenericInstantiatePackage", "RecordExtend");
     // Collect extend decls by usage.
     RecordExtend(*curPkg);
+    Utils::ProfileRecorder::Stop("GenericInstantiatePackage", "RecordExtend");
     Utils::ProfileRecorder::Start("GenericInstantiatePackage", "testManager::PrepareToMock");
     testManager->PrepareToMock(*curPkg);
     Utils::ProfileRecorder::Stop("GenericInstantiatePackage", "testManager::PrepareToMock");
+    Utils::ProfileRecorder::Start("GenericInstantiatePackage", "instantiate");
     if (curPkg->TestAttr(Attribute::INCRE_COMPILE)) {
         InstantiateForIncrementalPackage();
     } else {
@@ -299,7 +299,6 @@ void GIM::GenericInstantiationManagerImpl::GenericInstantiatePackage(Package& pk
     Utils::ProfileRecorder::Start("GenericInstantiatePackage", "testManager::HandleCreateMock");
     testManager->HandleCreateMock(*curPkg);
     Utils::ProfileRecorder::Stop("GenericInstantiatePackage", "testManager::HandleCreateMock");
-
     // Do not perform rearrange, validation and deletion if errors generated.
     if (diag.GetErrorCount() != 0) {
         return;
@@ -318,12 +317,21 @@ void GIM::GenericInstantiationManagerImpl::GenericInstantiatePackage(Package& pk
     if (diag.GetErrorCount() != 0) {
         return;
     }
-    Utils::ProfileRecorder recorder("GenericInstantiatePackage", "cleanup");
+    Utils::ProfileRecorder::Start("GenericInstantiatePackage", "UpdateInstantiatedExtendMap");
     UpdateInstantiatedExtendMap();
+    Utils::ProfileRecorder::Stop("GenericInstantiatePackage", "UpdateInstantiatedExtendMap");
+    Utils::ProfileRecorder::Start("GenericInstantiatePackage", "UpdateInstantiatedDeclsLinkage");
     UpdateInstantiatedDeclsLinkage(pkg);
+    Utils::ProfileRecorder::Stop("GenericInstantiatePackage", "UpdateInstantiatedDeclsLinkage");
+    Utils::ProfileRecorder::Start("GenericInstantiatePackage", "ClearImportedUnusedInstantiatedDecls");
     ClearImportedUnusedInstantiatedDecls();
+    Utils::ProfileRecorder::Stop("GenericInstantiatePackage", "ClearImportedUnusedInstantiatedDecls");
+    Utils::ProfileRecorder::Start("GenericInstantiatePackage", "ValidateUsedNodes");
     ValidateUsedNodes(diag, pkg);
+    Utils::ProfileRecorder::Stop("GenericInstantiatePackage", "ValidateUsedNodes");
+    Utils::ProfileRecorder::Start("GenericInstantiatePackage", "UnsetBoxStatus");
     UnsetBoxStatus(pkg);
+    Utils::ProfileRecorder::Stop("GenericInstantiatePackage", "UnsetBoxStatus");
 }
 
 void GIM::GenericInstantiationManagerImpl::RecordExtend(AST::Node& node)

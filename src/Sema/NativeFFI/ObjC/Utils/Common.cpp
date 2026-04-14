@@ -90,6 +90,16 @@ Ptr<Decl> FindMirrorMember(const std::string_view& mirrorMemberIdent, const Inhe
     return Ptr<Decl>(nullptr);
 }
 
+Ptr<Decl> FindMirrorMember(const InheritableDecl& target, std::function<bool(Decl&)> pred)
+{
+    auto& decls = target.GetMemberDecls();
+    auto found = std::find_if(decls.begin(), decls.end(), [pred](auto& decl) { return pred(*decl); });
+    if (found != decls.end()) {
+        return found->get();
+    }
+    return nullptr;
+}
+
 bool HasMirrorSuperClass(const ClassLikeDecl& target)
 {
     return GetMirrorSuperClass(target) != nullptr;

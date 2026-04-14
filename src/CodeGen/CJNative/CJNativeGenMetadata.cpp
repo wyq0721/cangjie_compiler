@@ -155,16 +155,6 @@ llvm::MDTuple* MetadataInfo::GenerateAttrsMetadata(const CHIR::AttributeInfo& at
             break;
         case ExtraAttribute::ENUM:
             attrsStr.emplace(enumKind);
-            // ---------------------------------------------------------
-            // METADATA VERSIONING NOTE:
-            // We inject the "reflect_version_1" flag to indicate that this Enum
-            // metadata tuple consists of 6 valid memory blocks (operands).
-            // This distinguishes it from the legacy version which had only 5 blocks.
-            // The runtime checks for this flag to confirm that it is safe to access
-            // the extended metadata fields (such as generic type info), regardless
-            // of the specific field order which might be adjusted by the LLVM backend.
-            // ---------------------------------------------------------
-            attrsStr.emplace("reflectVersion1");
             break;
         case ExtraAttribute::BOX_CLASS:
             attrsStr.emplace("box");
@@ -172,7 +162,12 @@ llvm::MDTuple* MetadataInfo::GenerateAttrsMetadata(const CHIR::AttributeInfo& at
         default:
             break;
     }
-
+    // "reflectVersion1" tells the runtime to use the new metadata processing path.
+    // Some types require it (enum now has 6 fields; struct may carry "unknownSize" for
+    // generics with runtime-determined layout), others are compatible with either path.
+    // We emit it unconditionally so the runtime always takes the new path uniformly.
+    // Only meaningful when reflection is enabled (i.e. --disable-reflection is not set).
+    attrsStr.emplace("reflectVersion1");
     if (hasSRetMode != SRetMode::NO_SRET) {
         attrsStr.emplace("hasSRet" + std::to_string(hasSRetMode));
     }
@@ -243,7 +238,7 @@ llvm::MDTuple* MetadataInfo::GenerateInstanceFieldMetadata(const CHIR::MemberVar
         .CreateMDTuple();
 }
 
-llvm::MDTuple* MetadataInfo::GenerateStaticFieldMetadata(const CHIR::GlobalVarBase& staticField)
+llvm::MDTuple* MetadataInfo::GenerateStaticFieldMetadata(const CHIR::GlobalVar& staticField)
 {
     llvm::LLVMContext& llvmCtx = module.GetLLVMContext();
     return MetadataVector(llvmCtx)
@@ -257,7 +252,7 @@ llvm::MDTuple* MetadataInfo::GenerateStaticFieldMetadata(const CHIR::GlobalVarBa
         .CreateMDTuple();
 }
 
-llvm::MDTuple* MetadataInfo::GenerateMethodMetadata(const CHIR::FuncBase& method, bool isFromInterface)
+llvm::MDTuple* MetadataInfo::GenerateMethodMetadata(const CHIR::Function& method, bool isFromInterface)
 {
     llvm::LLVMContext& llvmCtx = module.GetLLVMContext();
     CJC_ASSERT(method.GetType()->IsFunc());
@@ -268,32 +263,15 @@ llvm::MDTuple* MetadataInfo::GenerateMethodMetadata(const CHIR::FuncBase& method
     MetadataVector methodMD(llvmCtx);
     methodMD.Concat(methodName).Concat(retTypeInfo).Concat(methodLinkageName);
     auto extraAttr = isFromInterface ? ExtraAttribute::METHOD_FROM_INTERFACE : ExtraAttribute::METHOD;
-    if (method.IsFuncWithBody()) {
-        auto methodValue = StaticCast<CHIR::Func*>(&method);
-        CJC_NULLPTR_CHECK(methodValue);
-        uint8_t hasSRetMode = GetSRetMode(*funcType->GetReturnType(), *module.GetOrInsertCGFunction(methodValue));
-        methodMD
-            .Concat(method.TestAttr(CHIR::Attribute::STATIC)
-                    ? GenerateParametersMetadata(methodValue->GetParams())
-                    : GenerateParametersMetadata(methodValue->GetParams(), true))
-            .Concat(GenerateParametersMetadata(methodValue->GetGenericTypeParams()))
-            .Concat(GenerateAttrsMetadata(
-                method.GetAttributeInfo(), extraAttr, methodValue->GetAnnoInfo().mangledName, hasSRetMode));
-        (void)module.GetOrInsertCGFunction(methodValue);
-    } else {
-        auto importedMethodValue = StaticCast<CHIR::ImportedFunc*>(&method);
-        CJC_NULLPTR_CHECK(importedMethodValue);
-        uint8_t hasSRetMode =
-            GetSRetMode(*funcType->GetReturnType(), *module.GetOrInsertCGFunction(importedMethodValue));
-        methodMD
-            .Concat(method.TestAttr(CHIR::Attribute::STATIC)
-                    ? GenerateParametersMetadata(importedMethodValue->GetParamInfo())
-                    : GenerateParametersMetadata(importedMethodValue->GetParamInfo(), true))
-            .Concat(GenerateParametersMetadata(importedMethodValue->GetGenericTypeParams()))
-            .Concat(GenerateAttrsMetadata(
-                method.GetAttributeInfo(), extraAttr, importedMethodValue->GetAnnoInfo().mangledName, hasSRetMode));
-        (void)module.GetOrInsertCGFunction(importedMethodValue);
-    }
+    uint8_t hasSRetMode = GetSRetMode(*funcType->GetReturnType(), *module.GetOrInsertCGFunction(&method));
+    methodMD
+        .Concat(method.TestAttr(CHIR::Attribute::STATIC)
+                ? GenerateParametersMetadata(method.GetParams())
+                : GenerateParametersMetadata(method.GetParams(), true))
+        .Concat(GenerateParametersMetadata(method.GetGenericTypeParams()))
+        .Concat(GenerateAttrsMetadata(
+            method.GetAttributeInfo(), extraAttr, method.GetAnnoInfo().mangledName, hasSRetMode));
+    (void)module.GetOrInsertCGFunction(&method);
     return methodMD.CreateMDTuple();
 }
 

@@ -312,9 +312,15 @@ void EmitTIOrTTForCustomDefs(CGModule& cgMod)
         switch (customDef->GetCustomKind()) {
             case CHIR::CustomDefKind::TYPE_ENUM: {
                 auto chirEnumType = StaticCast<CHIR::EnumDef*>(customDef)->GetType();
-                const auto& ctors = chirEnumType->GetConstructorInfos(cgMod.GetCGContext().GetCHIRBuilder());
-                for (auto ctorIndex = 0U; ctorIndex < ctors.size(); ++ctorIndex) {
-                    EnumCtorTIOrTTGenerator(cgMod, *chirEnumType, ctorIndex).Emit();
+                auto* cgEnumType = StaticCast<const CGEnumType*>(CGType::GetOrCreate(cgMod, chirEnumType));
+                bool needEmit = (!cgEnumType->IsTrivial() && !cgEnumType->IsZeroSizeEnum()) ||
+                    (!cgMod.GetCGContext().GetCompileOptions().disableReflection &&
+                        cgMod.GetCGContext().GetCompileOptions().target.env != Triple::Environment::OHOS);
+                if (needEmit) {
+                    const auto& ctors = chirEnumType->GetConstructorInfos(cgMod.GetCGContext().GetCHIRBuilder());
+                    for (auto ctorIndex = 0U; ctorIndex < ctors.size(); ++ctorIndex) {
+                        EnumCtorTIOrTTGenerator(cgMod, *chirEnumType, ctorIndex).Emit();
+                    }
                 }
                 break;
             }
@@ -347,9 +353,9 @@ void GenSubCHIRPackage(CGModule& cgMod)
     auto& subCHIRPkg = cgMod.GetCGContext().GetSubCHIRPackage();
     EmitTIOrTTForCustomDefs(cgMod);
     EmitGlobalVariableIR(cgMod, std::vector<CHIR::GlobalVar*>(subCHIRPkg.chirGVs.begin(), subCHIRPkg.chirGVs.end()));
-    EmitFunctionIR(cgMod, std::vector<CHIR::Func*>(subCHIRPkg.chirFuncs.begin(), subCHIRPkg.chirFuncs.end()));
+    EmitFunctionIR(cgMod, std::vector<CHIR::Function*>(subCHIRPkg.chirFuncs.begin(), subCHIRPkg.chirFuncs.end()));
     EmitImportedCFuncIR(cgMod,
-        std::vector<CHIR::ImportedFunc*>(subCHIRPkg.chirImportedCFuncs.begin(), subCHIRPkg.chirImportedCFuncs.end()));
+        std::vector<CHIR::Function*>(subCHIRPkg.chirImportedCFuncs.begin(), subCHIRPkg.chirImportedCFuncs.end()));
     if (subCHIRPkg.mainModule) {
         EmitCJSDKVersion(cgMod);
         EmitMain(cgMod);
@@ -624,5 +630,7 @@ void ClearPackageModules(std::vector<std::unique_ptr<llvm::Module>>& packageModu
         CJC_NULLPTR_CHECK(llvmCtx);
         delete llvmCtx;
     });
+
+    Utils::FreeIdleMemoryToOS();
 }
 } // namespace Cangjie::CodeGen

@@ -373,6 +373,14 @@ public:
 };
 
 /**
+ * Rewrite typechecks that involve ObjC-compatible types
+ */
+class RewriteObjCTypechecks : public Handler<RewriteObjCTypechecks, InteropContext> {
+public:
+    void HandleImpl(InteropContext& ctx);
+};
+
+/**
  * Rewrite pointer access performed by ObjCPointer methods to proper FFI calls
  */
 class RewriteObjCPointerAccess : public Handler<RewriteObjCPointerAccess, InteropContext> {
@@ -598,6 +606,32 @@ private:
     Ptr<AST::FuncDecl> objcObj4PureCJFunc{nullptr};
     Ptr<AST::FuncDecl> objcObjFunc{nullptr};
     Ptr<AST::FuncDecl> objcAutoReleaseFunc{nullptr};
+};
+
+/**
+ * Adds implementations to previously created `init(String): NSString` constructor and `toString(): String` member
+ * function in `NSString` and `NSObject` mirrors respectively. Their declarations are created in
+ * `BeforeTypeCheck/Desugar`.
+ *
+ * ```cangjie
+ * @ObjCMirror
+ * public class NSString <: NSObject {
+ *     init(str: String) {
+ *         this(convertToNSString(str))
+ *     }
+ * }
+ *
+ * @ObjCMirror
+ * public class NSObject {
+ *     toString(): String {
+ *         return descriptionAsString($getObj)
+ *     }
+ * }
+ * ```
+ */
+class InsertStringConversions : public Handler<InsertStringConversions, InteropContext> {
+public:
+    void HandleImpl(InteropContext& ctx);
 };
 
 } // namespace Cangjie::Interop::ObjC

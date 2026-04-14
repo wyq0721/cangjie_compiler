@@ -111,6 +111,7 @@ const std::map<std::string, std::vector<std::string>> CONDITION_VALUES = {
         {
             "x86_64",
             "aarch64",
+            "arm",
         },
     },
     {

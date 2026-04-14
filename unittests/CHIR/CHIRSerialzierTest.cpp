@@ -276,12 +276,6 @@ PackageFormat::ValueKind Serialize(const Value::ValueKind& kind)
         case Value::ValueKind::KIND_PARAMETER:
             ret = ValueKind_PARAMETER;
             break;
-        case Value::ValueKind::KIND_IMP_FUNC:
-            ret = ValueKind_IMPORTED_FUNC;
-            break;
-        case Value::ValueKind::KIND_IMP_VAR:
-            ret = ValueKind_IMPORTED_VAR;
-            break;
         case Value::ValueKind::KIND_LOCALVAR:
             ret = ValueKind_LOCALVAR;
             break;
@@ -1741,6 +1735,8 @@ PackageFormat::IntrinsicKind Serialize(const IntrinsicKind& kind)
         case EXCLUSIVE_SCOPE:
             ret = IntrinsicKind_EXCLUSIVE_SCOPE;
             break;
+        case GET_JSLAMBDA_ADDR:
+            ret = IntrinsicKind_GET_JSLAMBDA_ADDR;
             // no defalut here, due to we need use compiler to check all value be handled.
     }
     return ret;

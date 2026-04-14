@@ -256,12 +256,10 @@ void AST2CHIR::SetInitFuncForStaticVar()
         }
         CJC_ASSERT(skipedStaticVar->astKind == AST::ASTKind::VAR_DECL);
         // Also set the init func here
-        if (auto skipedStaticVarInCHIR = DynamicCast<GlobalVar*>(skipedStaticVarVal)) {
-            auto staticInitFuncInAST = staticInitFuncInfoMap.at(skipedStaticVar->outerDecl).staticInitFunc;
-            auto staticInitFuncInCHIR = DynamicCast<Func*>(globalCache.Get(*staticInitFuncInAST));
-            CJC_NULLPTR_CHECK(staticInitFuncInCHIR);
-            skipedStaticVarInCHIR->SetInitFunc(*staticInitFuncInCHIR);
-        }
+        auto skipedStaticVarInCHIR = StaticCast<GlobalVar*>(skipedStaticVarVal);
+        auto staticInitFuncInAST = staticInitFuncInfoMap.at(skipedStaticVar->outerDecl).staticInitFunc;
+        auto staticInitFuncInCHIR = StaticCast<Function*>(globalCache.Get(*staticInitFuncInAST));
+        skipedStaticVarInCHIR->SetInitFunc(*staticInitFuncInCHIR);
     }
 }
 
@@ -345,7 +343,7 @@ void AST2CHIR::SetGenericDecls() const
                 if (chirIns == nullptr) {
                     continue;
                 }
-                VirtualCast<FuncBase*>(chirIns)->SetGenericDecl(*VirtualCast<FuncBase*>(chirGeneric));
+                StaticCast<Function*>(chirIns)->SetGenericDecl(*StaticCast<Function*>(chirGeneric));
             }
         }
     }
@@ -398,9 +396,9 @@ void AST2CHIR::TranslateAllDecls(const AST::Package& pkg, const InitOrder& initO
 
     // step 4: set `CompileTimeValue` for lambda
     Utils::ProfileRecorder::Start("TranslateAllDecls", "SetCompileTimeValueFlag");
-    for (auto func : package->GetGlobalFuncs()) {
+    for (auto func : package->GetGlobalFuncsWithBody()) {
         if (func->TestAttr(Attribute::CONST)) {
-            SetCompileTimeValueFlagRecursivly(*func);
+            SetCompileTimeValueFlagRecursively(*func);
         }
     }
     Utils::ProfileRecorder::Stop("TranslateAllDecls", "SetCompileTimeValueFlag");
@@ -479,6 +477,7 @@ void AST2CHIR::AST2CHIRCheck()
 /// Return true if chir was deserialized
 bool AST2CHIR::TryToDeserializeCHIR()
 {
+    Utils::ProfileRecorder recorder("AST to CHIR Translation", "TryToDeserializeCHIR");
     auto& chirFiles = opts.inputChirFiles;
     CJC_ASSERT(chirFiles.size() != 0);
     ToCHIR::Phase phase;
@@ -505,7 +504,6 @@ static Package::AccessLevel BuildPackageAccessLevel(const AST::AccessLevel& leve
 
 bool AST2CHIR::ToCHIRPackage(AST::Package& node)
 {
-    builder.SetCompileCJMP(opts.IsCompilingCJMP());
     // It can be not null in case of part of the package was deserialized from .chir
     bool needDesCHIR = opts.IsCompilingCJMPSpecific();
     if (!needDesCHIR) {

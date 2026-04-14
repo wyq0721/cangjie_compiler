@@ -13,12 +13,12 @@ using namespace Cangjie::CHIR;
 
 void GetRefToArrayElem::RunOnPackage(const Package& package, CHIRBuilder& builder)
 {
-    for (auto func : package.GetGlobalFuncs()) {
+    for (auto func : package.GetGlobalFuncsWithBody()) {
         RunOnFunc(*func, builder);
     }
 }
 
-void GetRefToArrayElem::RunOnFunc(const Func& func, CHIRBuilder& builder)
+void GetRefToArrayElem::RunOnFunc(const Function& func, CHIRBuilder& builder)
 {
     for (auto block : func.GetBody()->GetBlocks()) {
         for (auto expr : block->GetExpressions()) {

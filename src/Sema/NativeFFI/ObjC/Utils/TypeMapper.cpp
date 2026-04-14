@@ -108,7 +108,7 @@ Ptr<Ty> TypeMapper::Cj2CType(Ptr<Ty> cjty) const
     if (IsObjCBlock(*cjty)) {
         return bridge.GetNativeObjCIdTy();
     }
-    CJC_ASSERT(cjty->IsBuiltin() || Ty::IsCStructType(*cjty));
+    CJC_ASSERT(cjty->IsBuiltin() || Ty::IsCStructType(*cjty) || cjty->IsCFunc());
     return cjty;
 }
 
@@ -279,6 +279,10 @@ bool TypeMapper::IsObjCCompatible(const Ty& ty)
             };
             CJC_ASSERT(ty.typeArgs[0]);
             if (IsValidObjCMirror(*ty.typeArgs[0]) || IsObjCImpl(*ty.typeArgs[0])) {
+                return true;
+            }
+        case TypeKind::TYPE_FUNC:
+            if (ty.IsCFunc()) {
                 return true;
             }
         default:

@@ -205,7 +205,7 @@ TEST_F(MacroTest, DISABLED_MacroCall_Check_For_LSP)
     diag.Reset();
 
     std::vector<uint8_t> astData;
-    defInstance->importManager.ExportAST(false, astData, *defInstance->GetSourcePackages()[0]);
+    defInstance->importManager->ExportAST(false, astData, *defInstance->GetSourcePackages()[0]);
     std::string astFile = definePath + "define.cjo";
     ASSERT_TRUE(FileUtil::WriteBufferToASTFile(astFile, astData));
 
@@ -289,7 +289,7 @@ TEST_F(MacroTest, DISABLED_MacroCall_Check_For_LSP_Paralle)
     diag.Reset();
 
     std::vector<uint8_t> astData;
-    defInstance->importManager.ExportAST(false, astData, *defInstance->GetSourcePackages()[0]);
+    defInstance->importManager->ExportAST(false, astData, *defInstance->GetSourcePackages()[0]);
     std::string astFile = definePath + "define.cjo";
     ASSERT_TRUE(FileUtil::WriteBufferToASTFile(astFile, astData));
 
@@ -428,6 +428,20 @@ TEST_F(MacroTest, DISABLED_NoErrorInLSPMacro)
     instance->srcFilePaths = {src};
     instance->Compile(CompileStage::SEMA);
  
+    EXPECT_EQ(diag.GetErrorCount(), 0);
+    Cangjie::MacroProcMsger::GetInstance().CloseMacroSrv();
+}
+
+TEST_F(MacroTest, DISABLED_NoErrorInDeriveEnum)
+{
+    auto src = srcPath + "derive_enum2.cj";
+    invocation.globalOptions.enableMacroInLSP = true;
+    invocation.globalOptions.executablePath = projectPath + "/output/bin/";
+    instance = std::make_unique<TestCompilerInstance>(invocation, diag);
+    instance->compileOnePackageFromSrcFiles = true;
+    instance->srcFilePaths = {src};
+    instance->Compile(CompileStage::SEMA);
+
     EXPECT_EQ(diag.GetErrorCount(), 0);
     Cangjie::MacroProcMsger::GetInstance().CloseMacroSrv();
 }

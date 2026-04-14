@@ -252,6 +252,10 @@ if(MACOS)
     set(CANGJIE_DISABLE_STACK_GROW_FEATURE ON)
 endif()
 
+if(ANDROID AND NOT (CMAKE_SYSTEM_PROCESSOR MATCHES "^arm"))
+    add_link_options("-Wl,-z,max-page-size=16384")
+endif()
+
 if(CANGJIE_INCLUDE)
     foreach(include_path ${CANGJIE_INCLUDE})
         include_directories(${include_path})
@@ -265,10 +269,6 @@ endif()
 if(CMAKE_BUILD_TYPE MATCHES Release)
     add_definitions(-DRELEASE)
 endif()
-if(ANDROID)
-    add_link_options("-Wl,-z,max-page-size=16384")
-endif()
-
 # BUILD_GCC_TOOLCHAIN specifies toolchain for cjc, stdlib and BE at the same time, which means
 # that it is used for both targets for HOST (e.g. cjc, llc) and targets for TARGET
 # (e.g. stdlib, runtime). In the case that we need to build a cjc for a host which is not a target,

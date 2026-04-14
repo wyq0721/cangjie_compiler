@@ -24,7 +24,7 @@ FlatForInExpr::FlatForInExpr(CHIRBuilder& builder)
 
 void FlatForInExpr::RunOnPackage(const Package& package)
 {
-    for (auto& func : package.GetGlobalFuncs()) {
+    for (auto& func : package.GetGlobalFuncsWithBody()) {
         RunOnFunc(*func);
     }
 }
@@ -196,7 +196,7 @@ void FlatForInExpr::RunOnBlockGroup(BlockGroup& blockGroup)
     }
 }
 
-void FlatForInExpr::RunOnFunc(Func& func)
+void FlatForInExpr::RunOnFunc(Function& func)
 {
     bool isCommonFunctionWithoutBody = func.TestAttr(Attribute::COMMON) && !func.GetBody();
     if (isCommonFunctionWithoutBody) {

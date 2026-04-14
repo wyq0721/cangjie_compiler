@@ -633,7 +633,7 @@ void ObjCGenerator::GenerateFunctionSymInit(const std::string& fName)
 }
 
 /*
- *  HEADER: @interface A : M
+ *  HEADER: @interface A : M <Proto1, Proto2>
  *  SOURCE: @implementation A
  */
 void ObjCGenerator::GenerateInterfaceDecl()
@@ -662,6 +662,30 @@ void ObjCGenerator::GenerateInterfaceDecl()
     } else {
         resultH += " : ";
         resultH += Cangjie::OCOBJECT_NAME;
+    }
+
+    std::set<Ptr<Cangjie::AST::InterfaceTy>> interfaces = classDecl
+        ? classDecl->GetSuperInterfaceTys()
+        : std::set<Ptr<Cangjie::AST::InterfaceTy>>();
+
+    std::vector<Ptr<Cangjie::AST::InterfaceTy>> interfacesVec;
+    std::copy_if (interfaces.begin(), interfaces.end(),
+        std::back_inserter(interfacesVec),
+        [](Ptr<Cangjie::AST::InterfaceTy> i) {
+            return !TypeMapper::IsObjCId(*i);
+        }
+    );
+
+    auto collectInterfaceName = [](const Ptr<Cangjie::AST::InterfaceTy>& i) {
+        return i->decl->identifier.GetRawText();
+    };
+
+    if (!interfacesVec.empty()) {
+        for (auto i : interfacesVec) {
+            AddToPreamble(GenerateImport("\"" + collectInterfaceName(i) + ".h\""));
+        }
+        resultH += JoinVec<Ptr<Cangjie::AST::InterfaceTy>>(interfacesVec,
+            collectInterfaceName, ", ", " <", "> ");
     }
 
     AddWithIndent(resultH, GenerationTarget::HEADER);

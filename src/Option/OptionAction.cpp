@@ -256,9 +256,9 @@ bool ParseTargetTriple(GlobalOptions& opts, const std::string& triple)
                 const int num{std::stoi(opts.target.apiLevel)};
                 // The default Android magic version number is 10000.
                 // The minimum Android API level that cangjie supports.
-                if (num < 26 || num > 10000) {
+                if (num < 23 || num > 10000) {
                     Errorln("The Android API level is not supported in the target."
-                        " Please use a valid API level which is larger than 26.");
+                        " Please use a valid API level which is larger than 23.");
                 }
 #ifndef CANGJIE_ENABLE_GCOV
             } catch (std::exception const&) {

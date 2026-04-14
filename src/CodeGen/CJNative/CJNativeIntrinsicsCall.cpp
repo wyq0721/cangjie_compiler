@@ -1302,7 +1302,7 @@ llvm::Instruction* IRBuilder2::CallIntrinsicGetVTableFunc(
     return CreateCall(func, {CreateBitCast(ti, i8Ptr), introTypeIdx, funcOffset, CreateBitCast(introTI, i8Ptr)});
 }
 
-// parameters = {i8 any addrspace* dst, i8 addrspace(1)* src, TypeInfo* ti}
+// parameters = {i8 addrspace(1)* dst, i8 addrspace(1)* src, TypeInfo* ti}
 llvm::Instruction* IRBuilder2::CallIntrinsicAssignGeneric(const std::vector<llvm::Value*>& parameters)
 {
     CJC_ASSERT(parameters.size() == 3U);
@@ -1520,7 +1520,7 @@ llvm::Value* GetRealUUIDForAutoEnvClass(IRBuilder2& irBuilder, llvm::Value* obj)
 
 llvm::Value* IRBuilder2::CallIntrinsicFuncRefEq(std::vector<CGValue*> parameters)
 {
-    CJC_ASSERT(parameters.size() == 2 && "Func refEq should have two parameters");
+    CJC_ASSERT(parameters.size() == 2 && "Function refEq should have two parameters");
     auto realUUID0 = GetRealUUIDForAutoEnvClass(*this, **parameters[0]);
     auto realUUID1 = GetRealUUIDForAutoEnvClass(*this, **parameters[1]);
     return CreateICmpEQ(realUUID0, realUUID1);

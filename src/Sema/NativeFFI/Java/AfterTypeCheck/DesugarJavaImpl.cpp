@@ -758,6 +758,8 @@ void JavaDesugarManager::DesugarIsExpression(IsExpr& ie)
     auto isInstanceCall = CreateIsInstanceCall(jObjVarPattern->varDecl, castTy, curFile);
     auto jObjectType = CreateType(jObjectDecl->ty);
     auto typePattern = CreateTypePattern(std::move(jObjVarPattern), std::move(jObjectType), *ie.leftExpr);
+    typePattern->needRuntimeTypeCheck = true;
+    typePattern->matchBeforeRuntime = false;
     matchCases.emplace_back(CreateMatchCase(std::move(typePattern), std::move(isInstanceCall)));
 
     // case _ => false
@@ -819,6 +821,8 @@ void JavaDesugarManager::DesugarAsExpression(AsExpr& ae)
     auto jObjectType = CreateType(jObjectDecl->ty);
     auto isInstanceMatch = CreateJObjectCast(jObjVarPattern->varDecl, castDecl, curFile);
     auto typePattern = CreateTypePattern(std::move(jObjVarPattern), std::move(jObjectType), *ae.leftExpr);
+    typePattern->needRuntimeTypeCheck = true;
+    typePattern->matchBeforeRuntime = false;
     typeMatchCases.emplace_back(CreateMatchCase(std::move(typePattern), std::move(isInstanceMatch)));
 
     // case _ => None

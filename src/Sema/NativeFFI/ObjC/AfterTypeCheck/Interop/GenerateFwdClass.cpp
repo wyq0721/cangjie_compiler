@@ -34,7 +34,6 @@ constexpr auto OBJC_OBJ_IDENT = "objcObj";
 constexpr auto AUTO_RELEASE_IDENT = "objcObjAutorelease";
 constexpr auto INIT_WITH_REG_ID_SEL = "initWithRegistryId:";
 constexpr auto REINIT_WITH_REG_ID_SEL = "reinitWithRegistryId:";
-constexpr auto INIT_IDENT = "init";
 constexpr auto FINALIZER_IDENT = "~init";
 
 template <typename... Args> inline OwnedPtr<Block> CreateBlock(bool isSafe, OwnedPtr<Args>&&... args)
@@ -390,7 +389,7 @@ void GenerateFwdClass::GenerateConstructor4FwdClass(FuncDecl& decl)
     auto superCall = CreateSuperCall(*superClassDecl, decl, fnTy);
     CreateParamsAndArgs(ASTFactory::GetParams(decl), params, *superCall);
     auto ctorTy = pctx->typeManager.GetFunctionTy(CollectTys(params), fwdClass->ty);
-    auto ctor = ASTFactory::CreateFunc(INIT_IDENT, ctorTy, std::move(params),
+    auto ctor = ASTFactory::CreateFunc(std::string(INIT_IDENT), ctorTy, std::move(params),
         Nodes(std::move(superCall), std::move(assignObj), std::move(assignMask)));
     ctor->EnableAttr(Attribute::PUBLIC, Attribute::CONSTRUCTOR);
     Ptr<FuncDecl> fwdClassCtor = ctor.get();

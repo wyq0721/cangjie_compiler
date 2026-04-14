@@ -205,7 +205,7 @@ llvm::DISubroutineType* DIBuilder::CreateDefaultFunctionType()
 }
 
 #ifndef __APPLE__
-static const CHIR::Type* GetOuterTypeOfMemberFunc(const CHIR::Func& func)
+static const CHIR::Type* GetOuterTypeOfMemberFunc(const CHIR::Function& func)
 {
     const auto parent = func.GetParentCustomTypeDef();
     CJC_NULLPTR_CHECK(parent);
@@ -218,7 +218,7 @@ static const CHIR::Type* GetOuterTypeOfMemberFunc(const CHIR::Func& func)
 }
 #endif
 
-void DIBuilder::SetSubprogram(const CHIR::Func* func, llvm::Function* function)
+void DIBuilder::SetSubprogram(const CHIR::Function* func, llvm::Function* function)
 {
     if (!enabled && !enableLineInfo) {
         return;
@@ -272,7 +272,8 @@ void DIBuilder::SetSubprogram(const CHIR::Func* func, llvm::Function* function)
     llvm::DINode::DIFlags flags = llvm::DINode::FlagPrototyped;
     flags |= isGV ? llvm::DINode::FlagArtificial : llvm::DINode::FlagZero;
     llvm::DISubprogram::DISPFlags spFlags = llvm::DISubprogram::SPFlagDefinition;
-    if (func->GetSrcCodeIdentifier() == INST_VIRTUAL_FUNC || func->GetSrcCodeIdentifier() == GENERIC_VIRTUAL_FUNC) {
+    if ((func->GetSrcCodeIdentifier() == INST_VIRTUAL_FUNC || func->GetSrcCodeIdentifier() == GENERIC_VIRTUAL_FUNC)
+        && scopeLine == 0) {
         // To properly step in to the closure function body, need to set a valid value for scopeLine.
         scopeLine = 1;
     }

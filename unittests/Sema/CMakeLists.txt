@@ -4,6 +4,15 @@
 #
 # See https://cangjie-lang.cn/pages/LICENSE for license information.
 
+add_executable(ParseJsonTest ParseJsonTest.cpp)
+target_link_libraries(
+    ParseJsonTest
+    cangjie-lsp
+    ${LINK_LIBS}
+    GTest::gtest
+    GTest::gtest_main)
+add_test(NAME ParseJsonTest COMMAND ParseJsonTest)
+
 add_executable(TypeCheckerTest TypeCheckerTest.cpp)
 target_link_libraries(
     TypeCheckerTest
@@ -36,3 +45,14 @@ target_link_libraries(
     GTest::gtest_main
     TestCompilerInstanceObject)
 add_test(NAME CommentsTest COMMAND CommentsTest)
+
+add_executable(APILevelVersionTest APILevelVersionTest.cpp)
+target_link_libraries(
+    APILevelVersionTest
+    cangjie-lsp
+    ${LINK_LIBS}
+    boundscheck-static
+    GTest::gtest
+    GTest::gtest_main
+    TestCompilerInstanceObject)
+add_test(NAME APILevelVersionTest COMMAND APILevelVersionTest)

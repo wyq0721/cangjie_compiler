@@ -975,7 +975,7 @@ void TryEnforceCandidate(TyVar& tv, const std::set<Ptr<Decl>>& candidates, TypeM
         // fill type arguments of found type with placeholder tyvars, in case it's generic
         // the tyvars may be solved later when inferring the lambda body
         std::vector<Ptr<GenericsTy>> tyArgs;
-        tyMgr.constraints[&tv].sum.clear();
+        tyMgr.constraints[&tv].sum.softClear();
         for (auto ty : declTys) {
             tyMgr.AddSumByCtor(tv, *ty, tyArgs);
         }

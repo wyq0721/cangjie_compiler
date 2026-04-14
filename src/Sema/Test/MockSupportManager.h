@@ -67,12 +67,6 @@ private:
     std::vector<OwnedPtr<AST::Decl>> generatedMockDecls;
     std::unordered_set<Ptr<AST::Decl>> usedInternalDecls;
 
-    // NOTE: To check whether the class implements accessor interface for interface with defaults.
-    // Because TypeManager caches super types and extends (?)
-    std::unordered_map<Ptr<AST::Ty>, std::unordered_set<Ptr<AST::Ty>>> defaultInterfaceAccessorExtends;
-
-    bool HasDefaultInterfaceAccessor(Ptr<AST::Ty> declTy, Ptr<AST::Ty> accessorInterfaceDeclTy);
-
     static void MakeOpenToMockIfNeeded(AST::Decl& decl);
     static void MarkMockAccessorWithAttributes(AST::Decl& decl, AST::AccessLevel accessLevel);
     bool IsMemberAccessOnThis(const AST::MemberAccess& memberAccess) const;
@@ -90,10 +84,19 @@ private:
         AST::FuncDecl& funcDecl, std::vector<OwnedPtr<AST::FuncParamList>> accessorFuncParamLists) const;
     OwnedPtr<AST::FuncDecl> GenerateVarDeclAccessor(AST::VarDecl& fieldDecl, AccessorKind kind);
     OwnedPtr<AST::CallExpr> GenerateAccessorCallForField(const AST::MemberAccess& memberAccess, AccessorKind kind);
+    OwnedPtr<AST::CallExpr> GenerateAccessorCallForField(OwnedPtr<AST::Expr> baseExpr, Ptr<AST::Decl> memberDecl,
+        Ptr<AST::Ty> memberTy, AccessorKind kind, Ptr<AST::File> curFile);
     Ptr<AST::Expr> ReplaceFieldGetWithAccessor(AST::MemberAccess& memberAccess, bool isInConstructor);
+    OwnedPtr<AST::CallExpr> GenerateAccessorCallForField(const AST::RefExpr& refExpr, AccessorKind kind);
     Ptr<AST::Expr> ReplaceFieldSetWithAccessor(AST::AssignExpr& assignExpr, bool isInConstructor);
+    Ptr<AST::Expr> ReplaceVarRefExprWithGetAccessor(AST::RefExpr& refExpr);
+    OwnedPtr<AST::CallExpr> ReplaceRefExprFieldSetWithAccessor(AST::RefExpr& refExpr, bool isInConstructor);
+    OwnedPtr<AST::CallExpr> ReplaceMemberAccessFieldSetWithAccessor(AST::MemberAccess& memAccess, bool isInConstructor);
+    Ptr<AST::Expr> ReplaceRefExprWithGetAccessor(AST::RefExpr& refExpr, AccessorKind kind);
+    OwnedPtr<AST::CallExpr> ReplaceRefExprFieldSetWithAccessorImpl(AST::RefExpr& refExpr, AccessorKind kind);
     Ptr<AST::Expr> ReplaceMemberAccessWithAccessor(AST::MemberAccess& memberAccess, bool isInConstructor);
-    Ptr<AST::Expr> ReplaceMemberAccess(AST::MemberAccess& member, bool isInConstructor, bool isSubMemberAccess);
+    Ptr<AST::Expr> ReplaceMemberAccess(
+        AST::MemberAccess& member, bool isInConstructor, bool isSubMemberAccess);
     Ptr<AST::Expr> ReplaceAssignment(AST::AssignExpr& assignment, bool isInConstructor);
     Ptr<AST::Expr> ReplaceRefExpr(AST::RefExpr& refExpr);
     Ptr<AST::Expr> ReplaceCallExpr(AST::CallExpr& callExpr);

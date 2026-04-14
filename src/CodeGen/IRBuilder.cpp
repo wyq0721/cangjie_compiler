@@ -142,11 +142,17 @@ llvm::Value* IRBuilder2::CreateLoad(const CGValue& cgVal, const llvm::Twine& nam
         auto ti = CreateTypeInfo(ori);
         auto payloadSize = GetLayoutSize_32(ori);
         auto tmp = CallIntrinsicAllocaGeneric({ti, payloadSize});
-        if (GetCGContext().GetBasePtrOf(cgVal.GetRawValue()) ||
-            cgVal.GetRawValue()->getType()->getPointerAddressSpace() == 0U) {
-            CreateMemCpy(GetPayloadFromObject(tmp), llvm::MaybeAlign(), *cgVal, llvm::MaybeAlign(), payloadSize);
+        auto basePtr = GetCGContext().GetBasePtrOf(cgVal.GetRawValue());
+        auto addrSpace = cgVal.GetRawValue()->getType()->getPointerAddressSpace();
+        if (basePtr == nullptr) {
+            if (addrSpace == 1U) {
+                CallIntrinsicAssignGeneric({tmp, *cgVal, ti});
+            } else {
+                CallGCWriteGenericPayload({tmp, *cgVal, payloadSize});
+            }
         } else {
-            CallIntrinsicAssignGeneric({tmp, *cgVal, ti});
+            CJC_ASSERT(addrSpace == 1U);
+            CallGCReadGeneric({tmp, basePtr, *cgVal, payloadSize});
         }
         return tmp;
     }
@@ -371,10 +377,9 @@ void IRBuilder2::CreateBoxedValueForValueType(const CHIR::Debug& debugNode, cons
             CGType::TypeExtraInfo(1U));
         CreateStore(cgValue, CGValue(castedPtr, addrType));
         if (ty->IsStruct()) {
-            auto curCHIRFunc = DynamicCast<const CHIR::Func*>(&GetInsertCGFunction()->GetOriginal());
-            CJC_NULLPTR_CHECK(curCHIRFunc);
+            const auto& curCHIRFunc = StaticCast<const CHIR::Function&>(GetInsertCGFunction()->GetOriginal());
             bool shouldUpdateThis =
-                curCHIRFunc->GetSrcCodeIdentifier() == "init" || curCHIRFunc->TestAttr(CHIR::Attribute::MUT);
+                curCHIRFunc.GetSrcCodeIdentifier() == "init" || curCHIRFunc.TestAttr(CHIR::Attribute::MUT);
             cgMod.GetCGContext().debugValue =
                 shouldUpdateThis && arg->getName() == "this" ? thisDebug : cgMod.GetCGContext().debugValue;
         }
@@ -460,7 +465,7 @@ void IRBuilder2::CreateGenericParaDeclare(const CGFunction& cgFunc)
     if (cgFunc.chirFunc.TestAttr(CHIR::Attribute::NO_DEBUG_INFO)) {
         return;
     }
-    auto chirFunc = dynamic_cast<const CHIR::Func*>(&cgFunc.GetOriginal());
+    auto chirFunc = dynamic_cast<const CHIR::Function*>(&cgFunc.GetOriginal());
     size_t genericIndex = 0;
     auto null = llvm::ConstantPointerNull::get(llvm::Type::getInt8PtrTy(cgMod.GetLLVMContext()));
     // For member function only.
