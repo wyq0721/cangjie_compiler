@@ -1210,7 +1210,13 @@ void GlobalOptions::ReadPathsFromEnvironmentVars(const std::unordered_map<std::s
     }
     const std::string sdkROOT = "SDKROOT";
     if (environmentVars.find(sdkROOT) != environmentVars.end()) {
-        environment.macOSSDKRoot = FileUtil::GetAbsPath(environmentVars.at(sdkROOT));
+        const auto& sdkRootVal = environmentVars.at(sdkROOT);
+        if (!sdkRootVal.empty()) {
+            // Prefer the canonicalized path, but fall back to the raw value if realpath() fails
+            // (e.g. when SDKROOT is a dangling symlink as reported by xcrun on some CI agents).
+            auto absPath = FileUtil::GetAbsPath(sdkRootVal);
+            environment.macOSSDKRoot = absPath.has_value() ? absPath.value() : sdkRootVal;
+        }
     }
     environment.allVariables = environmentVars;
 }
