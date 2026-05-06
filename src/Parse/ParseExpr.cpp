@@ -498,6 +498,15 @@ bool ParserImpl::IsConditionExpr(ExprKind ek)
 // The preP stands for previous precedence.
 OwnedPtr<Expr> ParserImpl::ParseExpr(const Token& preT, OwnedPtr<Expr> expr, ExprKind ek)
 {
+    NestingScope ns(*this);
+    if (ns.Exceeded()) {
+        if (ns.JustExceeded()) {
+            ParseDiagnoseRefactor(DiagKindRefactor::parse_exceeded_max_nesting_depth, lookahead.Begin());
+        }
+        auto invalid = MakeOwned<InvalidExpr>(lookahead.Begin());
+        invalid->EnableAttr(Attribute::IS_BROKEN);
+        return invalid;
+    }
     OwnedPtr<Expr> base;
     if (IsConditionExpr(ek) && Seeing(TokenKind::LET)) {
         base = ParseLetPattern(ek);
@@ -712,6 +721,15 @@ static ExprKind RemoveParsingIfCondExpr(ExprKind ek)
 
 OwnedPtr<Expr> ParserImpl::ParseUnaryExpr(ExprKind ek)
 {
+    NestingScope ns(*this);
+    if (ns.Exceeded()) {
+        if (ns.JustExceeded()) {
+            ParseDiagnoseRefactor(DiagKindRefactor::parse_exceeded_max_nesting_depth, lookahead.Begin());
+        }
+        auto invalid = MakeOwned<InvalidExpr>(lookahead.Begin());
+        invalid->EnableAttr(Attribute::IS_BROKEN);
+        return invalid;
+    }
     // For prefixUnaryExpression check: No newline between prefix token and expression.
     if (Seeing({TokenKind::SUB, TokenKind::NL}, false) || Seeing({TokenKind::NOT, TokenKind::NL}, false)) {
         DiagExpectedNoNewLine();

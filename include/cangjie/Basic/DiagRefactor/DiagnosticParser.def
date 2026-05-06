@@ -382,6 +382,8 @@ ERROR(parse_objc_optional_method_must_be_in_mirror_class, "@ObjCOptional method 
 
 ERROR(parse_objc_interop_not_supported, "Objective-C interoperability feature '%s' is not yet supported")
 
+ERROR(parse_exceeded_max_nesting_depth, "exceeded maximum nesting depth while parsing")
+
 ERROR(parse_diag_error, "%s", "%s")
 WARNING(parse_diag_warning, PARSER, "%s", "%s")
 

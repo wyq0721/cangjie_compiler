@@ -229,6 +229,14 @@ private:
 
     friend class ParserScope;
     friend class ChainScope;
+    friend class NestingScope;
+    // Maximum depth for recursive parser entry points (ParseType, ParseExpr,
+    // ParseUnaryExpr). Guards against pathological inputs (e.g. deeply nested
+    // generics `S<S<...<T>>>`, long `return return return ...` chains, or long
+    // unary `!!!!!...` chains) that would otherwise exhaust the call stack.
+    // Cangjie coroutines run with a 128KB default stack, so this must be small.
+    static constexpr size_t MAX_PARSER_NESTING_DEPTH = 256;
+    size_t parserNestingDepth{0};
     Ptr<AST::File> currentFile{nullptr};
     Ptr<AST::Node> curMacroCall{nullptr};
     std::string lastPrimaryDeclIdent;
@@ -1130,6 +1138,32 @@ public:
 
 private:
     std::vector<Ptr<AST::Node>>* ref;
+};
+
+class NestingScope {
+public:
+    explicit NestingScope(ParserImpl& parser) : ref(&parser)
+    {
+        ref->parserNestingDepth++;
+    }
+
+    ~NestingScope()
+    {
+        ref->parserNestingDepth--;
+    }
+
+    bool Exceeded() const
+    {
+        return ref->parserNestingDepth > ParserImpl::MAX_PARSER_NESTING_DEPTH;
+    }
+
+    bool JustExceeded() const
+    {
+        return ref->parserNestingDepth == ParserImpl::MAX_PARSER_NESTING_DEPTH + 1;
+    }
+
+private:
+    ParserImpl* ref;
 };
 
 class ParserScope {
