@@ -844,6 +844,67 @@ void DiagnosticEmitterImpl::ColorizeCombinedVec(SourceCombinedVec& combinedVec) 
     }
 }
 
+namespace {
+// Source lines longer than this many bytes are abbreviated with leading/trailing
+// ellipses so a single pathological line (e.g. tens of thousands of `return ...`
+// tokens or a 425-deep `S<S<...>>` chain) does not flood the terminal.
+constexpr size_t LINE_TRUNCATE_THRESHOLD = 200;
+constexpr size_t LINE_TRUNCATE_WINDOW = 60;
+constexpr const char* TRUNCATE_ELLIPSIS = "...";
+constexpr int TRUNCATE_ELLIPSIS_LEN = 3;
+
+void TruncateLongSourceLine(std::string& line, std::vector<CollectedInfo>& infos)
+{
+    if (line.size() <= LINE_TRUNCATE_THRESHOLD) {
+        return;
+    }
+    int focusCol = infos.empty() ? 1 : infos.front().range.begin.column;
+    if (focusCol < 1) {
+        focusCol = 1;
+    }
+    size_t lineLen = line.size();
+    size_t focusIdx = static_cast<size_t>(focusCol - 1);
+    if (focusIdx >= lineLen) {
+        focusIdx = lineLen > 0 ? lineLen - 1 : 0;
+    }
+    size_t winStart = focusIdx > LINE_TRUNCATE_WINDOW ? focusIdx - LINE_TRUNCATE_WINDOW : 0;
+    size_t winEnd = std::min(focusIdx + LINE_TRUNCATE_WINDOW, lineLen);
+
+    int leadLen = (winStart > 0) ? TRUNCATE_ELLIPSIS_LEN : 0;
+    std::string newLine;
+    if (leadLen > 0) {
+        newLine += TRUNCATE_ELLIPSIS;
+    }
+    newLine += line.substr(winStart, winEnd - winStart);
+    if (winEnd < lineLen) {
+        newLine += TRUNCATE_ELLIPSIS;
+    }
+
+    int contentCols = static_cast<int>(winEnd - winStart);
+    auto adjust = [&](int col) {
+        if (col < 1) {
+            return 1;
+        }
+        int colIdx = col - 1;
+        if (static_cast<size_t>(colIdx) < winStart) {
+            return 1 + leadLen;
+        }
+        if (static_cast<size_t>(colIdx) < winEnd) {
+            return 1 + leadLen + (colIdx - static_cast<int>(winStart));
+        }
+        return 1 + leadLen + contentCols;
+    };
+    for (auto& info : infos) {
+        info.range.begin.column = adjust(info.range.begin.column);
+        info.range.end.column = adjust(info.range.end.column);
+        if (info.range.end.column <= info.range.begin.column) {
+            info.range.end.column = info.range.begin.column + 1;
+        }
+    }
+    line = std::move(newLine);
+}
+}  // namespace
+
 void DiagnosticEmitterImpl::ConstructAndEmitSourceCode(std::vector<CollectedInfo>& errorInfo)
 {
     CJC_ASSERT(!errorInfo.empty());
@@ -863,6 +924,16 @@ void DiagnosticEmitterImpl::ConstructAndEmitSourceCode(std::vector<CollectedInfo
         return;
     }
     auto base = infoMap.begin()->first;
+    for (size_t i = 0; i < lineCodes.size(); ++i) {
+        unsigned lineNum = base + static_cast<unsigned>(i);
+        auto it = infoMap.find(lineNum);
+        if (it != infoMap.end()) {
+            TruncateLongSourceLine(lineCodes[i], it->second);
+        } else {
+            std::vector<CollectedInfo> empty;
+            TruncateLongSourceLine(lineCodes[i], empty);
+        }
+    }
     SourceCombinedVec combinedVec;
     std::for_each(lineCodes.begin(), lineCodes.end(), [&](auto& line) {
         combinedVec.push_back({line, base++, hasSourceFile, {{}}});
