@@ -30,14 +30,37 @@ flatbuffers::Offset<NodeFormat::Expr> NodeWriter::SerializeWildcardExpr(AstExpr 
 
 flatbuffers::Offset<NodeFormat::Expr> NodeWriter::SerializeBinaryExpr(AstExpr expr)
 {
-    auto binaryExpr = RawStaticCast<const BinaryExpr*>(expr);
-    auto fbNodeBase = SerializeNodeBase(binaryExpr);
-    auto leftExpr = SerializeExpr(binaryExpr->leftExpr.get());
-    auto rightExpr = SerializeExpr(binaryExpr->rightExpr.get());
-    auto operatorPos = FlatPosCreateHelper(binaryExpr->operatorPos);
-    auto fbBinaryExpr = NodeFormat::CreateBinaryExpr(
-        builder, fbNodeBase, leftExpr, rightExpr, static_cast<uint16_t>(binaryExpr->op), &operatorPos);
-    return NodeFormat::CreateExpr(builder, fbNodeBase, NodeFormat::AnyExpr_BINARY_EXPR, fbBinaryExpr.Union());
+    // Cangjie binary operators are left-associative, so `a + b + c + ... + z`
+    // produces a chain of BinaryExpr nodes whose `leftExpr` is itself a
+    // BinaryExpr. Serializing that recursively recurses N levels deep, which
+    // overflows the small Cangjie coroutine stack on inputs with thousands of
+    // operands. Walk the leftExpr chain iteratively, then build the
+    // FlatBuffers payload bottom-up so stack usage stays O(1) per level.
+    std::vector<const BinaryExpr*> chain;
+    auto cur = RawStaticCast<const BinaryExpr*>(expr);
+    while (cur != nullptr) {
+        chain.push_back(cur);
+        auto leftRaw = cur->leftExpr.get();
+        if (leftRaw != nullptr && leftRaw->astKind == ASTKind::BINARY_EXPR) {
+            cur = StaticCast<const BinaryExpr*>(leftRaw);
+            continue;
+        }
+        break;
+    }
+    auto leftSerialized = SerializeExpr(chain.back()->leftExpr.get());
+    flatbuffers::Offset<NodeFormat::Expr> currentSerialized = leftSerialized;
+    for (auto it = chain.rbegin(); it != chain.rend(); ++it) {
+        auto bin = *it;
+        auto fbNodeBase = SerializeNodeBase(bin);
+        auto rightSerialized = SerializeExpr(bin->rightExpr.get());
+        auto operatorPos = FlatPosCreateHelper(bin->operatorPos);
+        auto fbBinaryExpr = NodeFormat::CreateBinaryExpr(
+            builder, fbNodeBase, currentSerialized, rightSerialized,
+            static_cast<uint16_t>(bin->op), &operatorPos);
+        currentSerialized = NodeFormat::CreateExpr(
+            builder, fbNodeBase, NodeFormat::AnyExpr_BINARY_EXPR, fbBinaryExpr.Union());
+    }
+    return currentSerialized;
 }
 
 flatbuffers::Offset<NodeFormat::Expr> NodeWriter::SerializeIsExpr(AstExpr expr)

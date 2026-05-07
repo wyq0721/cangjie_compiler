@@ -675,8 +675,69 @@ VisitAction WalkerT<NodeT>::Walk(Ptr<NodeT> curNode) const
             }
             case ASTKind::BINARY_EXPR: {
                 auto be = StaticAs<ASTKind::BINARY_EXPR>(curNode);
-                if (Walk(be->leftExpr.get()) == VisitAction::STOP_NOW) {
-                    return VisitAction::STOP_NOW;
+                /*
+                 * Cangjie binary operators are left-associative, so a chain
+                 * like `a + b + c + ... + z` produces a leftExpr-nested tree
+                 * of BinaryExpr nodes. Walking it recursively would push one
+                 * stack frame per operand and overflow the small Cangjie
+                 * coroutine stack on inputs with thousands of operands. Walk
+                 * the leftExpr chain iteratively and reproduce the prefix
+                 * book-keeping (visited check, VisitPre, desugarExpr walk)
+                 * for each inner node, then unwind to walk rightExprs and
+                 * call VisitPost.
+                 */
+                std::vector<decltype(be)> chain;
+                auto current = be;
+                bool skipDescent = false;
+                while (true) {
+                    auto leftPtr = current->leftExpr.get();
+                    if (!leftPtr || leftPtr->astKind != ASTKind::BINARY_EXPR) {
+                        break;
+                    }
+                    auto innerBe = StaticAs<ASTKind::BINARY_EXPR>(leftPtr);
+                    if (innerBe->visitedByWalkerID == ID) {
+                        break;
+                    }
+                    innerBe->visitedByWalkerID = ID;
+                    VisitAction subAction = VisitAction::WALK_CHILDREN;
+                    if (VisitPre) {
+                        subAction = VisitPre(innerBe);
+                    }
+                    if (subAction == VisitAction::STOP_NOW) {
+                        return VisitAction::STOP_NOW;
+                    }
+                    if (subAction == VisitAction::SKIP_CHILDREN) {
+                        if (VisitPost) {
+                            auto optionalAction = VisitPost(innerBe);
+                            if (optionalAction == VisitAction::STOP_NOW) {
+                                return VisitAction::STOP_NOW;
+                            }
+                        }
+                        skipDescent = true;
+                        break;
+                    }
+                    if (Walk(innerBe->desugarExpr.get()) == VisitAction::STOP_NOW) {
+                        return VisitAction::STOP_NOW;
+                    }
+                    chain.push_back(innerBe);
+                    current = innerBe;
+                }
+                if (!skipDescent) {
+                    if (Walk(current->leftExpr.get()) == VisitAction::STOP_NOW) {
+                        return VisitAction::STOP_NOW;
+                    }
+                }
+                for (auto it = chain.rbegin(); it != chain.rend(); ++it) {
+                    auto innerBe = *it;
+                    if (Walk(innerBe->rightExpr.get()) == VisitAction::STOP_NOW) {
+                        return VisitAction::STOP_NOW;
+                    }
+                    if (VisitPost) {
+                        auto optionalAction = VisitPost(innerBe);
+                        if (optionalAction == VisitAction::STOP_NOW) {
+                            return VisitAction::STOP_NOW;
+                        }
+                    }
                 }
                 if (Walk(be->rightExpr.get()) == VisitAction::STOP_NOW) {
                     return VisitAction::STOP_NOW;
