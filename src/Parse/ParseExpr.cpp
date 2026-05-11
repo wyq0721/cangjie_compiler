@@ -499,10 +499,8 @@ bool ParserImpl::IsConditionExpr(ExprKind ek)
 OwnedPtr<Expr> ParserImpl::ParseExpr(const Token& preT, OwnedPtr<Expr> expr, ExprKind ek)
 {
     NestingScope ns(*this);
-    if (ns.Exceeded()) {
-        if (ns.JustExceeded()) {
-            ParseDiagnoseRefactor(DiagKindRefactor::parse_exceeded_max_nesting_depth, lookahead.Begin());
-        }
+    if (ns.CheckOverflowReportOnce(
+            DiagKindRefactor::parse_exceeded_max_nesting_depth, lookahead.Begin())) {
         auto invalid = MakeOwned<InvalidExpr>(lookahead.Begin());
         invalid->EnableAttr(Attribute::IS_BROKEN);
         return invalid;
@@ -721,11 +719,14 @@ static ExprKind RemoveParsingIfCondExpr(ExprKind ek)
 
 OwnedPtr<Expr> ParserImpl::ParseUnaryExpr(ExprKind ek)
 {
+    // Depth guard for `!!!!!a` / `------a` style prefix-unary chains, which
+    // recurse through ParseUnaryExpr -> ParseBaseExpr -> ParseUnaryExpr.
+    // Postfix forms (`a.b.c.d`, `a()()`, `a[i][j]`, `a++`) are parsed by
+    // while-loops in ParseBaseExprPostfix / ParseQuestSuffixExpr / etc., so
+    // they do not need a guard here.
     NestingScope ns(*this);
-    if (ns.Exceeded()) {
-        if (ns.JustExceeded()) {
-            ParseDiagnoseRefactor(DiagKindRefactor::parse_exceeded_max_nesting_depth, lookahead.Begin());
-        }
+    if (ns.CheckOverflowReportOnce(
+            DiagKindRefactor::parse_exceeded_max_nesting_depth, lookahead.Begin())) {
         auto invalid = MakeOwned<InvalidExpr>(lookahead.Begin());
         invalid->EnableAttr(Attribute::IS_BROKEN);
         return invalid;

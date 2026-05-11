@@ -848,8 +848,25 @@ namespace {
 // Source lines longer than this many bytes are abbreviated with leading/trailing
 // ellipses so a single pathological line (e.g. tens of thousands of `return ...`
 // tokens or a 425-deep `S<S<...>>` chain) does not flood the terminal.
+//
+// Example: with a 140 000-byte line containing `return return return ...` and an
+// error at column 540, the renderer would otherwise dump the entire 140 KB row.
+// With LINE_TRUNCATE_THRESHOLD=200 / LINE_TRUNCATE_WINDOW=80 the row is shown as
+//
+//     ...turn return return return return return ... return return return retu...
+//                                                  ^ <- caret column adjusted
+//
+// i.e. "..." + line[460 .. 620) + "...", with every caret / range column on the
+// line shifted into the new coordinate system by `adjust()` below.
+//
+// Tuning notes:
+//   * LINE_TRUNCATE_THRESHOLD: 200 bytes. Anything shorter than this is rendered
+//     untouched, so well-formed code (typically <=120 columns) is never altered.
+//   * LINE_TRUNCATE_WINDOW: 80 bytes on each side of the focus column, so the
+//     visible context fits a typical 160 / 200 column terminal even after the
+//     "  | " gutter is added by the renderer.
 constexpr size_t LINE_TRUNCATE_THRESHOLD = 200;
-constexpr size_t LINE_TRUNCATE_WINDOW = 60;
+constexpr size_t LINE_TRUNCATE_WINDOW = 80;
 constexpr const char* TRUNCATE_ELLIPSIS = "...";
 constexpr int TRUNCATE_ELLIPSIS_LEN = 3;
 

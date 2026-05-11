@@ -297,10 +297,8 @@ OwnedPtr<AST::Type> ParserImpl::ParsePrefixType()
 OwnedPtr<AST::Type> ParserImpl::ParseType()
 {
     NestingScope ns(*this);
-    if (ns.Exceeded()) {
-        if (ns.JustExceeded()) {
-            ParseDiagnoseRefactor(DiagKindRefactor::parse_exceeded_max_nesting_depth, lookahead.Begin());
-        }
+    if (ns.CheckOverflowReportOnce(
+            DiagKindRefactor::parse_exceeded_max_nesting_depth, lookahead.Begin())) {
         auto invalid = MakeOwned<InvalidType>(lookahead.Begin());
         invalid->EnableAttr(Attribute::IS_BROKEN);
         return invalid;

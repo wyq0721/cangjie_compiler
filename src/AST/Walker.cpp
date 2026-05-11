@@ -676,15 +676,40 @@ VisitAction WalkerT<NodeT>::Walk(Ptr<NodeT> curNode) const
             case ASTKind::BINARY_EXPR: {
                 auto be = StaticAs<ASTKind::BINARY_EXPR>(curNode);
                 /*
-                 * Cangjie binary operators are left-associative, so a chain
-                 * like `a + b + c + ... + z` produces a leftExpr-nested tree
-                 * of BinaryExpr nodes. Walking it recursively would push one
-                 * stack frame per operand and overflow the small Cangjie
-                 * coroutine stack on inputs with thousands of operands. Walk
-                 * the leftExpr chain iteratively and reproduce the prefix
-                 * book-keeping (visited check, VisitPre, desugarExpr walk)
-                 * for each inner node, then unwind to walk rightExprs and
-                 * call VisitPost.
+                 * Why iterate here and only for BinaryExpr?
+                 *
+                 * 1. This path IS reached even when the parser ran without
+                 *    errors. A user can write a perfectly legal expression
+                 *    such as `print(a0 + a1 + ... + a19999)` (see
+                 *    parameters_arguments_in_one_func.cj in the issue
+                 *    reproducer). The parser builds the tree iteratively with
+                 *    precedence climbing, so no parse_exceeded_max_nesting_depth
+                 *    fires; instead a 20 000-level left-deep BinaryExpr AST is
+                 *    produced and handed to later passes. AssignCurFile() then
+                 *    drives this Walker over it and the recursive
+                 *    `Walk(leftExpr)` exhausts the 128 KB Cangjie coroutine
+                 *    stack inside libcangjie-std-ast.dylib. This block is NOT
+                 *    dead code -- it is the only line of defence for that
+                 *    scenario.
+                 *
+                 * 2. BinaryExpr is special because it is the only AST kind
+                 *    whose parser builds a deeply left-nested tree by design:
+                 *      - AssignExpr (`a = b = c`) is right-associative, rare,
+                 *        and bounded by the parser depth limit at parse time.
+                 *      - IsExpr / AsExpr cannot legally chain (the parser
+                 *        already emits parse_chained_none_associative).
+                 *      - Postfix forms (`a.b.c`, `a()()`, `a[i][j]`) are
+                 *        parsed by while-loops, so the resulting AST is a
+                 *        tail-of-parent chain rather than a left-spine, and
+                 *        the parent's own Walk frame is the only recursion.
+                 *    So treating BINARY_EXPR alone is sufficient today.
+                 *
+                 * Algorithm: walk the leftExpr chain iteratively, replicate
+                 * the prefix book-keeping (visited check, VisitPre,
+                 * desugarExpr walk) the recursive Walk normally does on
+                 * entry for each inner node, then unwind to walk every
+                 * rightExpr and run VisitPost. STOP_NOW / SKIP_CHILDREN
+                 * semantics from VisitPre and VisitPost are preserved.
                  */
                 std::vector<decltype(be)> chain;
                 auto current = be;

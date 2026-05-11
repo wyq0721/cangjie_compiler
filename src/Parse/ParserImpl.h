@@ -1152,14 +1152,32 @@ public:
         ref->parserNestingDepth--;
     }
 
-    bool Exceeded() const
+    /**
+     * Returns true if the parser depth limit has been crossed and the caller
+     * should bail out with a broken InvalidType / InvalidExpr.
+     *
+     * The diagnostic is emitted at most once per overflow event: only the
+     * frame at depth MAX+1 (the first one that just crossed the line) prints
+     * `parse_exceeded_max_nesting_depth`. Outer frames also see `> MAX` as
+     * the InvalidType bubbles up through their own NestingScopes, but they
+     * skip the report so the user gets one error, not N.
+     *
+     * Note: a single bool flag "already reported" would not be equivalent --
+     * after a region unwinds and a different deeply-nested construct in the
+     * same file is parsed, we still want to report once for that region too.
+     * The depth == MAX+1 check naturally re-arms every time the parser dips
+     * below the limit and crosses it again.
+     */
+    template <typename PosT>
+    bool CheckOverflowReportOnce(DiagKindRefactor kind, const PosT& pos) const
     {
-        return ref->parserNestingDepth > ParserImpl::MAX_PARSER_NESTING_DEPTH;
-    }
-
-    bool JustExceeded() const
-    {
-        return ref->parserNestingDepth == ParserImpl::MAX_PARSER_NESTING_DEPTH + 1;
+        if (ref->parserNestingDepth <= ParserImpl::MAX_PARSER_NESTING_DEPTH) {
+            return false;
+        }
+        if (ref->parserNestingDepth == ParserImpl::MAX_PARSER_NESTING_DEPTH + 1) {
+            (void)ref->ParseDiagnoseRefactor(kind, pos);
+        }
+        return true;
     }
 
 private:

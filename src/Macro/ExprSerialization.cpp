@@ -34,8 +34,24 @@ flatbuffers::Offset<NodeFormat::Expr> NodeWriter::SerializeBinaryExpr(AstExpr ex
     // produces a chain of BinaryExpr nodes whose `leftExpr` is itself a
     // BinaryExpr. Serializing that recursively recurses N levels deep, which
     // overflows the small Cangjie coroutine stack on inputs with thousands of
-    // operands. Walk the leftExpr chain iteratively, then build the
-    // FlatBuffers payload bottom-up so stack usage stays O(1) per level.
+    // operands.
+    //
+    // This function IS reached even for inputs that parsed without errors:
+    // expressions like `print(a0 + a1 + ... + a19999)` (see
+    // parameters_arguments_in_one_func.cj in the issue reproducer) are entirely
+    // legal Cangjie. The parser builds the tree iteratively via precedence
+    // climbing, so it produces a 20 000-deep left-spined BinaryExpr AST without
+    // any diagnostic, and that AST is then handed to NodeWriter::ExportNode for
+    // serialization. Without this iterative rewrite the SerializeExpr ->
+    // SerializeBinaryExpr -> SerializeExpr(leftExpr) recursion overflows the
+    // stack here, even though no `parse_exceeded_max_nesting_depth` was raised.
+    //
+    // Walk the leftExpr chain iteratively, then build the FlatBuffers payload
+    // bottom-up so stack usage stays O(1) per level. The resulting byte stream
+    // is identical to what the recursive version produced: FlatBuffers tables
+    // are built innermost-first in both versions, and operand visit order is
+    // unchanged (each inner level: serialize child leftExpr, then rightExpr,
+    // then own NodeBase). Only the C++ call-stack shape differs.
     std::vector<const BinaryExpr*> chain;
     auto cur = RawStaticCast<const BinaryExpr*>(expr);
     while (cur != nullptr) {
