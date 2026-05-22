@@ -2,6 +2,11 @@
 
 Please describe the changes in this Pull Request.
 
+> If this change includes any modifications **not directly related to the linked issue** (e.g. opportunistic bug fixes, dependency bumps, style adjustments), they MUST be listed in a dedicated subsection below with the reason and linked issue, to avoid scope creep.
+> Example:
+> ### Piggyback changes
+> - Incidentally fixed X (related issue #YYY), reason: conflicts with adjacent code modified by this issue, must be solved in the same PR
+
 ## Change Type (Required)
 
 Please describe the type of changes in this Pull Request (reason). **Simply save and click the checkbox, or when editing, change `[ ]` to `[x]` for the relevant item.**

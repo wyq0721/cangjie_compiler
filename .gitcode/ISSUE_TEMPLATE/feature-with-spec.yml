@@ -1,0 +1,142 @@
+name: "新需求（含详细规格） | Feature with Detailed Spec"
+description: "用于任意非平凡变更：新增/修改诊断、AST/CHIR 节点、Sema visitor、Mangle 规则、宏/插件 API、序列化格式、条件编译、增量编译等。简单需求请继续使用 feature-request 模板。 | For any non-trivial change: new/modified diagnostics, AST/CHIR nodes, Sema visitors, Mangle rules, Macro/Plugin APIs, serialization formats, conditional/incremental compilation, etc. Simple requests should continue to use feature-request."
+title: "[Feature][Spec]: "
+labels: ["enhancement", "needs-spec"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢提出新需求。本模板用于沉淀**开发前规格**，把场景、矩阵、跨仓耦合自检等前移到立项阶段，减少开发中返工。
+        Thanks for proposing a new feature. This template captures the **pre-development spec** so that scenarios, matrices, and cross-component coupling checks are settled at intake time, reducing rework during development.
+
+  - type: textarea
+    id: scenarios
+    attributes:
+      label: "1. 用户场景（≥2 个，含至少 1 正 1 负） | User scenarios (≥2, including ≥1 positive and ≥1 negative)"
+      description: |
+        每个场景需包含完整 .cj 代码片段 / 编译命令 / 期望行为。
+        诊断类场景：触发条件 + 期望诊断 + 用户修复路径。
+        非诊断类（新语法、新优化、新转换等）：输入代码 + 编译结果 + 运行行为。
+        Each scenario must include a complete .cj code snippet, compile command, and expected behavior. For diagnostic-related scenarios, describe trigger conditions, expected diagnostics, and user remediation path. For non-diagnostic scenarios (new syntax, optimization, transformation, etc.), describe input code, compile result, and runtime behavior.
+      placeholder: |
+        ### 场景 A（正向）
+        ```cangjie
+        // 用户代码
+        ```
+        - 编译命令 / cfg / target：
+        - 当前行为：
+        - 期望行为：
+        - 用户应如何调整（如适用）：
+
+        ### 场景 B（负向）
+        ```cangjie
+        // 用户代码
+        ```
+        - 当前行为：
+        - 期望行为：
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostic-matrix
+    attributes:
+      label: "2. 诊断 / 错误信息矩阵 | Diagnostic matrix"
+      description: |
+        仅当本需求新增或修改诊断条目时填写。Only fill in when this feature adds or modifies diagnostic entries.
+      placeholder: |
+        | DiagKind | severity | 触发条件 | 关联场景 | 与其他诊断的关系 |
+        | -------- | -------- | -------- | -------- | ---------------- |
+        | sema_xxx_yyy | ERROR | ... | A | 与 sema_zzz 互斥 |
+    validations:
+      required: false
+
+  - type: textarea
+    id: transformation-matrix
+    attributes:
+      label: "3. 转换 / 解糖 / 优化矩阵 | Transformation / desugar / optimization matrix"
+      description: |
+        仅当本需求涉及 AST/CHIR 转换、Pass、desugar、Mangle 规则等转换类工作时填写。Only fill in when this feature involves AST/CHIR transformations, Passes, desugar, Mangle rules, etc.
+      placeholder: |
+        | 输入 | 条件（cfg/target/feature flag） | 输出 |
+        | ---- | ----------------------------- | ---- |
+        | @IfAvailable(level: int) | csv ≥ 26 | apiAvailable(int) |
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: coupling-checks
+    attributes:
+      label: "4. 跨仓 / 跨组件耦合自检（必填） | Cross-repo / cross-component coupling checks (Required)"
+      description: |
+        逐项确认本变更是否影响下游组件。**在保存后点击复选框，或编辑时将对应项前面的 `[ ]` 改为 `[X]`。** 即使不影响也要确认（在描述里说明已检查无影响）。
+        Check each item below for whether this change impacts downstream components. After saving, click the checkbox, or change `[ ]` to `[X]` while editing. Even if there is no impact, confirmation is required (note in the description that it has been checked).
+      options:
+        - label: "修改任意 `Basic/DiagRefactor/*.def` / DiagKind 枚举 → 已检查下游 cangjie_tools LSP base、IDE 插件硬编码 code 列表 | Modified `Basic/DiagRefactor/*.def` / DiagKind enums → downstream cangjie_tools LSP base and IDE plugin hardcoded code lists checked"
+          required: false
+        - label: "修改 AST 节点结构 / 字段 → 已检查 FlatBuffers schema (`schema/`)、CJO 序列化向后兼容、IncrementalCompilation hash | Modified AST node structure / fields → FlatBuffers schema (`schema/`), CJO serialization backward compatibility, IncrementalCompilation hash checked"
+          required: false
+        - label: "修改 CHIR opcode / IR 表示 → 已检查 runtime / stdlib 对 IR 的期望、CodeGen visitor 完备性 | Modified CHIR opcode / IR representation → runtime / stdlib expectations of the IR and CodeGen visitor completeness checked"
+          required: false
+        - label: "修改 Mangle 规则 → 已检查 demangler 工具、调试器符号解析、ABI 兼容 | Modified Mangle rules → demangler tool, debugger symbol resolution, and ABI compatibility checked"
+          required: false
+        - label: "修改 Macro / Plugin API → 已检查用户已有宏/插件、stdlib 内置宏的兼容 | Modified Macro / Plugin API → existing user macros/plugins and stdlib built-in macro compatibility checked"
+          required: false
+        - label: "修改条件编译（cfg）/ feature flag → 已检查 stdlib 条件编译块、用户工程 cfg | Modified conditional compilation (cfg) / feature flags → stdlib conditional blocks and user project cfg checked"
+          required: false
+        - label: "修改增量编译 hash / 缓存 key → 已确认旧缓存失效策略 | Modified incremental compilation hash / cache key → invalidation strategy for old caches confirmed"
+          required: false
+        - label: "依赖特定 stub / SDK 包路径 → 已通过 SDK 文档验证 | Depends on specific stub / SDK package path → verified against SDK documentation"
+          required: false
+        - label: "新增 LLT 用例 → 已确认 DEPENDENCE 路径被拍平为 basename，EXEC/ERRCHECK 已用 basename | New LLT cases added → confirmed DEPENDENCE paths are flattened to basename, EXEC/ERRCHECK uses basename"
+          required: false
+        - label: "责任田归属已明确（compiler / LSP / IDE / runtime / stdlib / test / build） | Ownership area clearly identified (compiler / LSP / IDE / runtime / stdlib / test / build)"
+          required: true
+
+  - type: textarea
+    id: test-design
+    attributes:
+      label: "5. 测试设计矩阵（必填） | Test design matrix (Required)"
+      description: |
+        等价类 + 边界 + 负向必须覆盖。先有矩阵再写用例。
+        Equivalence classes + boundaries + negative cases must all be covered. Build the matrix first, then write the cases.
+      placeholder: |
+        | 用例 ID | 输入 | cfg/target | 期望诊断 / 编译结果 / 运行输出 | 关联场景 | 正/负向 | LLT 或 HLT |
+        | ------ | ---- | ---------- | ----------------------------- | ------- | ------- | --------- |
+        | TC-001 | ... | ... | ... | A | 正向 | LLT |
+        | TC-002 | ... | ... | ... | B | 负向 | LLT |
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope-exclusion
+    attributes:
+      label: "6. scope exclusion list（必填） | Scope exclusion list (Required)"
+      description: |
+        明确"本 issue **不**包含什么"。开发中发现的相关问题须建独立 issue，在本 issue / PR 评论里互链，避免 scope creep。
+        Clearly state what this issue does **not** cover. Related issues discovered during development must be filed as separate issues and cross-linked in this issue / PR comments, to avoid scope creep.
+      placeholder: |
+        本 issue 不包含：
+        - ...
+        - ...
+
+        如发现以下相关问题，请新建 issue：
+        - ...
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: version
+    attributes:
+      label: "新需求涉及的分支版本 | Branch versions involved in the new feature"
+      description: "请选择涉及的分支版本： | Please select the involved branch versions."
+      options:
+        - label: dev
+          required: false
+        - label: main
+          required: false
+        - label: release/1.0
+          required: false
+        - label: release/OpenHarmony-release-6.0
+          required: false
+    validations:
+      required: true
