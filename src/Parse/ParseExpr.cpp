@@ -499,8 +499,7 @@ bool ParserImpl::IsConditionExpr(ExprKind ek)
 OwnedPtr<Expr> ParserImpl::ParseExpr(const Token& preT, OwnedPtr<Expr> expr, ExprKind ek)
 {
     NestingScope ns(*this);
-    if (ns.CheckOverflowReportOnce(
-            DiagKindRefactor::parse_exceeded_max_nesting_depth, lookahead.Begin())) {
+    if (ns.CheckOverflowReportOnce(DiagKindRefactor::parse_exceeded_max_nesting_depth, lookahead.Begin())) {
         auto invalid = MakeOwned<InvalidExpr>(lookahead.Begin());
         invalid->EnableAttr(Attribute::IS_BROKEN);
         return invalid;
@@ -515,7 +514,6 @@ OwnedPtr<Expr> ParserImpl::ParseExpr(const Token& preT, OwnedPtr<Expr> expr, Exp
     if (!SeeingExprOperator()) {
         return base;
     }
-    auto preP = Precedence(preT.kind);
     while (SeeingExprOperator()) {
         auto tok = GetExprOperator();
         if (newlineSkipped) {
@@ -523,28 +521,8 @@ OwnedPtr<Expr> ParserImpl::ParseExpr(const Token& preT, OwnedPtr<Expr> expr, Exp
             builder.AddHint(MakeRange(
                 lastNoneNLToken.Begin(), lookahead.Begin() + 1), lastNoneNLToken.Value(), tok.Value());
         }
-        auto curP = Precedence(tok.kind);
-        if (IsConditionExpr(ek) && Is<LetPatternDestructor>(base.get()) && curP < Precedence(TokenKind::RANGEOP) &&
-            tok.kind != TokenKind::AND && tok.kind != TokenKind::OR) {
+        if (ShouldStopBinaryOperatorLoop(preT, tok, base, ek)) {
             return base;
-        }
-        if (ek == ExprKind::LET_PATTERN && curP < Precedence(TokenKind::RANGEOP)) {
-            // according to if-let expression, only binary expression whose operator precedence is not lower than .. is
-            // allowed in let pattern initializer. Operators with lower precedence would be considered an end of this
-            // let initalizer
-            return base;
-        }
-        if (preP > curP) {
-            return base;
-        } else if (preP == curP) {
-            // Means it is default operator whose precedence is 0.
-            // Only 'curT' is assignment token will enter this branch.
-            CheckLeftExpression(preT, base, tok);
-            // Right associative,
-            if (tok.kind != TokenKind::COALESCING && tok.kind != TokenKind::EXP &&
-                !(preT.Begin().IsZero() && Precedence(tok.kind) == INVALID_PRECEDENCE)) {
-                return base;
-            }
         }
         auto res = CheckMacroExprRules(preT, tok, *base);
         // make base expr as another expr's sub expr
@@ -555,6 +533,37 @@ OwnedPtr<Expr> ParserImpl::ParseExpr(const Token& preT, OwnedPtr<Expr> expr, Exp
         ParseExprWithRightExprOrType(base, tok, ek);
     }
     return base;
+}
+
+bool ParserImpl::ShouldStopBinaryOperatorLoop(
+    const Token& preT, const Token& tok, const OwnedPtr<Expr>& base, ExprKind ek)
+{
+    uint8_t preP = Precedence(preT.kind);
+    uint8_t curP = Precedence(tok.kind);
+    if (IsConditionExpr(ek) && Is<LetPatternDestructor>(base.get()) && curP < Precedence(TokenKind::RANGEOP) &&
+        tok.kind != TokenKind::AND && tok.kind != TokenKind::OR) {
+        return true;
+    }
+    if (ek == ExprKind::LET_PATTERN && curP < Precedence(TokenKind::RANGEOP)) {
+        // according to if-let expression, only binary expression whose operator precedence is not lower than .. is
+        // allowed in let pattern initializer. Operators with lower precedence would be considered an end of this
+        // let initalizer
+        return true;
+    }
+    if (preP > curP) {
+        return true;
+    }
+    if (preP == curP) {
+        // Means it is default operator whose precedence is 0.
+        // Only 'curT' is assignment token will enter this branch.
+        CheckLeftExpression(preT, base, tok);
+        // Right associative,
+        if (tok.kind != TokenKind::COALESCING && tok.kind != TokenKind::EXP &&
+            !(preT.Begin().IsZero() && Precedence(tok.kind) == INVALID_PRECEDENCE)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 void ParserImpl::CheckLeftExpression(const Token& preT, const OwnedPtr<Expr>& base, const Token& tok)
@@ -725,8 +734,7 @@ OwnedPtr<Expr> ParserImpl::ParseUnaryExpr(ExprKind ek)
     // while-loops in ParseBaseExprPostfix / ParseQuestSuffixExpr / etc., so
     // they do not need a guard here.
     NestingScope ns(*this);
-    if (ns.CheckOverflowReportOnce(
-            DiagKindRefactor::parse_exceeded_max_nesting_depth, lookahead.Begin())) {
+    if (ns.CheckOverflowReportOnce(DiagKindRefactor::parse_exceeded_max_nesting_depth, lookahead.Begin())) {
         auto invalid = MakeOwned<InvalidExpr>(lookahead.Begin());
         invalid->EnableAttr(Attribute::IS_BROKEN);
         return invalid;

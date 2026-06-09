@@ -898,7 +898,7 @@ void TruncateLongSourceLine(std::string& line, std::vector<CollectedInfo>& infos
     }
 
     int contentCols = static_cast<int>(winEnd - winStart);
-    auto adjust = [&](int col) {
+    auto adjust = [leadLen, contentCols, winStart, winEnd](int col) {
         if (col < 1) {
             return 1;
         }

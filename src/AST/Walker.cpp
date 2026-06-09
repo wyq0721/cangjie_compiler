@@ -35,6 +35,74 @@ template class WalkerT<const Node>;
 } // namespace Cangjie::AST
 template VisitAction Walker::Walk(Ptr<Node> curNode) const;
 template VisitAction ConstWalker::Walk(Ptr<const Node> curNode) const;
+template VisitAction Walker::WalkBinaryExprChain(Ptr<Node> curNode) const;
+template VisitAction ConstWalker::WalkBinaryExprChain(Ptr<const Node> curNode) const;
+/*
+ * Iteratively walk a left-associative BinaryExpr chain. Only BinaryExpr needs
+ * this: a legal expression such as `print(a0 + a1 + ... + a19999)` parses (via
+ * precedence climbing, without any nesting-depth diagnostic) into a 20 000-deep
+ * left-spined BinaryExpr AST, and a recursive `Walk(leftExpr)` over it would
+ * exhaust the 128 KB Cangjie coroutine stack inside libcangjie-std-ast.dylib
+ * (see UsersForum issue 3128). Other left-nestable forms do not need it:
+ * AssignExpr is right-associative and bounded by the parser depth limit;
+ * IsExpr / AsExpr cannot legally chain; postfix forms (`a.b.c`, `a()()`) are
+ * parsed by while-loops, so their AST is a tail-of-parent chain, not a spine.
+ *
+ * The descent loop replicates the per-node entry book-keeping the recursive
+ * Walk does (visited check, VisitPre, desugarExpr walk); the unwind walks each
+ * rightExpr and runs VisitPost. STOP_NOW / SKIP_CHILDREN semantics from
+ * VisitPre and VisitPost are preserved.
+ */
+template <class NodeT>
+VisitAction WalkerT<NodeT>::WalkBinaryExprChain(Ptr<NodeT> curNode) const
+{
+    auto be = StaticAs<ASTKind::BINARY_EXPR>(curNode);
+    std::vector<decltype(be)> chain;
+    auto current = be;
+    bool skipDescent = false;
+    while (current != nullptr) {
+        auto leftPtr = current->leftExpr.get();
+        if (!leftPtr || leftPtr->astKind != ASTKind::BINARY_EXPR) {
+            break;
+        }
+        auto innerBe = StaticAs<ASTKind::BINARY_EXPR>(leftPtr);
+        if (innerBe->visitedByWalkerID == ID) {
+            break;
+        }
+        innerBe->visitedByWalkerID = ID;
+        VisitAction subAction = VisitPre ? VisitPre(innerBe) : VisitAction::WALK_CHILDREN;
+        if (subAction == VisitAction::STOP_NOW) {
+            return VisitAction::STOP_NOW;
+        }
+        if (subAction == VisitAction::SKIP_CHILDREN) {
+            skipDescent = true;
+            if (VisitPostRequestsStop(innerBe)) {
+                return VisitAction::STOP_NOW;
+            }
+            break;
+        }
+        if (Walk(innerBe->desugarExpr.get()) == VisitAction::STOP_NOW) {
+            return VisitAction::STOP_NOW;
+        }
+        chain.push_back(innerBe);
+        current = innerBe;
+    }
+    if (!skipDescent && Walk(current->leftExpr.get()) == VisitAction::STOP_NOW) {
+        return VisitAction::STOP_NOW;
+    }
+    for (auto it = chain.rbegin(); it != chain.rend(); ++it) {
+        if (Walk((*it)->rightExpr.get()) == VisitAction::STOP_NOW) {
+            return VisitAction::STOP_NOW;
+        }
+        if (VisitPostRequestsStop(*it)) {
+            return VisitAction::STOP_NOW;
+        }
+    }
+    if (Walk(be->rightExpr.get()) == VisitAction::STOP_NOW) {
+        return VisitAction::STOP_NOW;
+    }
+    return VisitAction::WALK_CHILDREN;
+}
 template <class NodeT>
 VisitAction WalkerT<NodeT>::Walk(Ptr<NodeT> curNode) const
 {
@@ -674,97 +742,9 @@ VisitAction WalkerT<NodeT>::Walk(Ptr<NodeT> curNode) const
                 break;
             }
             case ASTKind::BINARY_EXPR: {
-                auto be = StaticAs<ASTKind::BINARY_EXPR>(curNode);
-                /*
-                 * Why iterate here and only for BinaryExpr?
-                 *
-                 * 1. This path IS reached even when the parser ran without
-                 *    errors. A user can write a perfectly legal expression
-                 *    such as `print(a0 + a1 + ... + a19999)` (see
-                 *    parameters_arguments_in_one_func.cj in the issue
-                 *    reproducer). The parser builds the tree iteratively with
-                 *    precedence climbing, so no parse_exceeded_max_nesting_depth
-                 *    fires; instead a 20 000-level left-deep BinaryExpr AST is
-                 *    produced and handed to later passes. AssignCurFile() then
-                 *    drives this Walker over it and the recursive
-                 *    `Walk(leftExpr)` exhausts the 128 KB Cangjie coroutine
-                 *    stack inside libcangjie-std-ast.dylib. This block is NOT
-                 *    dead code -- it is the only line of defence for that
-                 *    scenario.
-                 *
-                 * 2. BinaryExpr is special because it is the only AST kind
-                 *    whose parser builds a deeply left-nested tree by design:
-                 *      - AssignExpr (`a = b = c`) is right-associative, rare,
-                 *        and bounded by the parser depth limit at parse time.
-                 *      - IsExpr / AsExpr cannot legally chain (the parser
-                 *        already emits parse_chained_none_associative).
-                 *      - Postfix forms (`a.b.c`, `a()()`, `a[i][j]`) are
-                 *        parsed by while-loops, so the resulting AST is a
-                 *        tail-of-parent chain rather than a left-spine, and
-                 *        the parent's own Walk frame is the only recursion.
-                 *    So treating BINARY_EXPR alone is sufficient today.
-                 *
-                 * Algorithm: walk the leftExpr chain iteratively, replicate
-                 * the prefix book-keeping (visited check, VisitPre,
-                 * desugarExpr walk) the recursive Walk normally does on
-                 * entry for each inner node, then unwind to walk every
-                 * rightExpr and run VisitPost. STOP_NOW / SKIP_CHILDREN
-                 * semantics from VisitPre and VisitPost are preserved.
-                 */
-                std::vector<decltype(be)> chain;
-                auto current = be;
-                bool skipDescent = false;
-                while (true) {
-                    auto leftPtr = current->leftExpr.get();
-                    if (!leftPtr || leftPtr->astKind != ASTKind::BINARY_EXPR) {
-                        break;
-                    }
-                    auto innerBe = StaticAs<ASTKind::BINARY_EXPR>(leftPtr);
-                    if (innerBe->visitedByWalkerID == ID) {
-                        break;
-                    }
-                    innerBe->visitedByWalkerID = ID;
-                    VisitAction subAction = VisitAction::WALK_CHILDREN;
-                    if (VisitPre) {
-                        subAction = VisitPre(innerBe);
-                    }
-                    if (subAction == VisitAction::STOP_NOW) {
-                        return VisitAction::STOP_NOW;
-                    }
-                    if (subAction == VisitAction::SKIP_CHILDREN) {
-                        if (VisitPost) {
-                            auto optionalAction = VisitPost(innerBe);
-                            if (optionalAction == VisitAction::STOP_NOW) {
-                                return VisitAction::STOP_NOW;
-                            }
-                        }
-                        skipDescent = true;
-                        break;
-                    }
-                    if (Walk(innerBe->desugarExpr.get()) == VisitAction::STOP_NOW) {
-                        return VisitAction::STOP_NOW;
-                    }
-                    chain.push_back(innerBe);
-                    current = innerBe;
-                }
-                if (!skipDescent) {
-                    if (Walk(current->leftExpr.get()) == VisitAction::STOP_NOW) {
-                        return VisitAction::STOP_NOW;
-                    }
-                }
-                for (auto it = chain.rbegin(); it != chain.rend(); ++it) {
-                    auto innerBe = *it;
-                    if (Walk(innerBe->rightExpr.get()) == VisitAction::STOP_NOW) {
-                        return VisitAction::STOP_NOW;
-                    }
-                    if (VisitPost) {
-                        auto optionalAction = VisitPost(innerBe);
-                        if (optionalAction == VisitAction::STOP_NOW) {
-                            return VisitAction::STOP_NOW;
-                        }
-                    }
-                }
-                if (Walk(be->rightExpr.get()) == VisitAction::STOP_NOW) {
+                // Walked iteratively in a helper to bound stack use on long
+                // left-associative chains; see WalkBinaryExprChain (issue 3128).
+                if (WalkBinaryExprChain(curNode) == VisitAction::STOP_NOW) {
                     return VisitAction::STOP_NOW;
                 }
                 action = VisitAction::WALK_CHILDREN;

@@ -109,6 +109,25 @@ private:
      * @return VisitAction decision after walking into it.
      */
     VisitAction Walk(Ptr<NodeT> curNode) const;
+
+    /**
+     * Iteratively walk a left-associative BinaryExpr chain rooted at curNode.
+     * A long chain such as `a + b + ... + z` parses into a deeply left-nested
+     * BinaryExpr tree; recursing once per level through Walk(leftExpr) would
+     * exhaust the small Cangjie coroutine stack (see UsersForum issue 3128).
+     * This replicates Walk's per-node book-keeping (visited check, VisitPre,
+     * desugar walk, VisitPost) iteratively and preserves the STOP_NOW /
+     * SKIP_CHILDREN semantics.
+     * @param curNode The BinaryExpr node to be walked.
+     * @return STOP_NOW if any visitor requested it, otherwise WALK_CHILDREN.
+     */
+    VisitAction WalkBinaryExprChain(Ptr<NodeT> curNode) const;
+
+    /** True iff a VisitPost callback is registered and it requests STOP_NOW for `n`. */
+    bool VisitPostRequestsStop(Ptr<NodeT> n) const
+    {
+        return VisitPost && VisitPost(n) == VisitAction::STOP_NOW;
+    }
     template <typename T> friend class WalkerT;
 };
 using Walker = WalkerT<Node>;

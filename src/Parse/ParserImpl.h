@@ -638,6 +638,10 @@ private:
     OwnedPtr<AST::Expr> ParseBaseExpr(OwnedPtr<AST::Expr> expr = nullptr, ExprKind ek = ExprKind::ALL);
     // Expr means base. Some ast need to parse base outside and register to this api.
     OwnedPtr<AST::Expr> ParseExpr(const Token& preT, OwnedPtr<AST::Expr> expr = nullptr, ExprKind ek = ExprKind::ALL);
+    // Decides whether the precedence-climbing loop in ParseExpr should stop and return the current `base`.
+    // Extracted from ParseExpr to keep that function's size and cyclomatic complexity within limits.
+    bool ShouldStopBinaryOperatorLoop(
+        const Token& preT, const Token& tok, const OwnedPtr<AST::Expr>& base, ExprKind ek);
     void ParseExprWithRightExprOrType(OwnedPtr<AST::Expr>& base, const Token& tok, ExprKind ek);
     static bool IsConditionExpr(ExprKind ek);
 
