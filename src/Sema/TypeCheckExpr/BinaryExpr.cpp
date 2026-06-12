@@ -1065,6 +1065,25 @@ bool TypeChecker::TypeCheckerImpl::CheckFlowOperandsHaveNamedParam(const CallExp
     });
 }
 
+namespace {
+// Whether the desugared flow call wrapped an operand into `operand.operator()` because the
+// operand was pre-synthesized to a non-function type (see TryDesugarFunctionCallExpr).
+bool HasOperatorParenWrapper(const BinaryExpr& be)
+{
+    CJC_ASSERT(be.desugarExpr && be.desugarExpr->astKind == ASTKind::CALL_EXPR);
+    auto& ce = *StaticCast<CallExpr*>(be.desugarExpr.get());
+    auto isWrapper = [](const Expr& e) {
+        auto ma = DynamicCast<const MemberAccess*>(&e);
+        return ma && ma->field == "()" && ma->TestAttr(Attribute::COMPILER_ADD);
+    };
+    if (be.op == TokenKind::PIPELINE) {
+        return ce.baseFunc && isWrapper(*ce.baseFunc);
+    }
+    return std::any_of(ce.args.begin(), ce.args.end(),
+        [&isWrapper](const OwnedPtr<FuncArg>& arg) { return arg && arg->expr && isWrapper(*arg->expr); });
+}
+} // namespace
+
 bool TypeChecker::TypeCheckerImpl::ChkFlowExpr(ASTContext& ctx, Ptr<Ty> target, BinaryExpr& be)
 {
     if (Ty::IsTyCorrect(be.GetTy())) {
@@ -1110,21 +1129,45 @@ bool TypeChecker::TypeCheckerImpl::ChkFlowExpr(ASTContext& ctx, Ptr<Ty> target, 
     DesugarFlowExpr(ctx, be);
 
     CJC_ASSERT(be.desugarExpr && be.desugarExpr->astKind == ASTKind::CALL_EXPR);
-    CallExpr& beCallExpr = *StaticCast<CallExpr*>(be.desugarExpr.get());
-    {
+    auto resetOperandForRetry = [&ctx](Expr& operand) {
+        Walker(&operand, [](Ptr<Node> n) {
+            if ((Is<Decl>(n) || Is<Expr>(n)) && !Ty::IsInitialTy(n->GetTy())) {
+                n->Clear();
+            }
+            return VisitAction::WALK_CHILDREN;
+        }).Walk();
+        ctx.ClearTypeCheckCache(operand);
+    };
+    for (bool retried = false;; retried = true) {
+        CallExpr& beCallExpr = *StaticCast<CallExpr*>(be.desugarExpr.get());
         auto ds = DiagSuppressor(diag);
-        if (!ChkCallExpr(ctx, target, beCallExpr)) {
-            (void)ds.GetSuppressedDiag();
-            // Should recover the desugaredExpr to binaryExpr if failed.
-            RecoverToBinaryExpr(be);
-            be.SetTy(TypeManager::GetInvalidTy());
-            DiagnoseForBinaryExpr(ctx, be);
-            ds.ReportDiag();
-            return false;
+        if (ChkCallExpr(ctx, target, beCallExpr)) {
+            ds.ReportDiag(); // Report warnings.
+            break;
         }
-        ds.ReportDiag(); // Report warnings.
+        (void)ds.GetSuppressedDiag();
+        // When an operand was pre-synthesized to a non-function type, it was wrapped into
+        // `operand.operator()` by the desugar. The operand may be a nested call whose callee was
+        // resolved without the flow context and thus wrongly (e.g. a member function shadowing
+        // an imported one of the same name). Retry once with the operands fully cleared, so the
+        // desugared flow call drives the nested overload resolution with proper target types.
+        bool canRetry = !retried && HasOperatorParenWrapper(be);
+        // Should recover the desugaredExpr to binaryExpr if failed.
+        RecoverToBinaryExpr(be);
+        if (canRetry) {
+            PData::Reset(typeManager.constraints);
+            resetOperandForRetry(*be.leftExpr);
+            resetOperandForRetry(*be.rightExpr);
+            DesugarFlowExpr(ctx, be);
+            CJC_ASSERT(be.desugarExpr && be.desugarExpr->astKind == ASTKind::CALL_EXPR);
+            continue;
+        }
+        be.SetTy(TypeManager::GetInvalidTy());
+        DiagnoseForBinaryExpr(ctx, be);
+        ds.ReportDiag();
+        return false;
     }
-    if (CheckFlowOperandsHaveNamedParam(beCallExpr)) {
+    if (CheckFlowOperandsHaveNamedParam(*StaticCast<CallExpr*>(be.desugarExpr.get()))) {
         // Should recover the desugaredExpr to binaryExpr if failed.
         RecoverToBinaryExpr(be);
         be.SetTy(TypeManager::GetInvalidTy());
