@@ -12,8 +12,33 @@
 
 #include "Toolchains/CJNATIVE/Ohos_CJNATIVE.h"
 
+#include "cangjie/Basic/Print.h"
+
 using namespace Cangjie;
 using namespace Cangjie::Triple;
+
+namespace {
+// When the OpenHarmony sysroot is missing or misconfigured (e.g. a stale `--sysroot`/`-B` path that no
+// longer exists), the C runtime objects are filtered out of the search paths and the link later fails
+// with a cryptic `ld.lld: error: cannot open crti.o`. Warn at the point we fail to resolve crti.o so the
+// misconfiguration is obvious instead of surfacing only as a raw linker error.
+void WarnIfCRuntimeMissing(const std::optional<std::string>& maybeCrti, const std::vector<std::string>& crtPaths)
+{
+    if (maybeCrti.has_value()) {
+        return;
+    }
+    std::string searched;
+    for (const auto& path : crtPaths) {
+        searched += "\n    " + path;
+    }
+    Cangjie::Warningln(
+        "cannot find the OpenHarmony C runtime object 'crti.o' in any C runtime library path. The sysroot "
+        "is likely missing or misconfigured: check the '--sysroot' and '-B'/'--toolchain' options so they "
+        "point to a valid musl sysroot that provides crti.o/crtn.o/libc/libm. Otherwise linking will fail "
+        "with \"cannot open crti.o\".",
+        searched.empty() ? std::string() : ("\n  searched C runtime library paths:" + searched));
+}
+} // namespace
 
 void Ohos_CJNATIVE::AddCRuntimeLibraryPaths()
 {
@@ -76,6 +101,7 @@ void Ohos_CJNATIVE::GenerateLinkingTool(const std::vector<TempFileInfo>& objFile
         tool->AppendArg(maybeCrt1.value_or("Scrt1.o"));
     }
     auto maybeCrti = FileUtil::FindFileByName("crti.o", GetCRuntimeLibraryPath());
+    WarnIfCRuntimeMissing(maybeCrti, GetCRuntimeLibraryPath());
     tool->AppendArg(maybeCrti.value_or("crti.o"));
     HandleLLVMLinkOptions(objFiles, gccLibPath, *tool, cjldScript);
     GenerateRuntimePath(*tool);
