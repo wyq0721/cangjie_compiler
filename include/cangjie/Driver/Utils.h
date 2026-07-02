@@ -57,6 +57,22 @@ std::vector<std::string> PrependToPaths(
  * @return std::optional<std::string> The sdk version info.
  */
 std::optional<std::string> GetDarwinSDKVersion(const std::string& sdkPath);
+
+/**
+ * @brief Build a diagnostic message for a missing OpenHarmony C runtime object.
+ *
+ * When cross-compiling for OpenHarmony, the C runtime start object `crti.o` is resolved from the
+ * C runtime library search paths (populated from `--sysroot` / `-B` / `--toolchain`). When the
+ * sysroot is missing or misconfigured, `crti.o` cannot be resolved and the link later fails with a
+ * cryptic `ld.lld: error: cannot open crti.o`. This helper turns that unresolved state into an
+ * actionable diagnostic. It is pure so it can be unit tested independently of the linker invocation.
+ *
+ * @param resolvedCrti The result of resolving `crti.o` in the C runtime library paths.
+ * @param crtRuntimePaths The C runtime library search paths that were consulted (listed in the message).
+ * @return std::optional<std::string> The warning message when `resolvedCrti` is empty, otherwise nullopt.
+ */
+std::optional<std::string> DiagnoseMissingCRuntime(
+    const std::optional<std::string>& resolvedCrti, const std::vector<std::string>& crtRuntimePaths);
 } // namespace Cangjie
 
 #endif // CANGJIE_DRIVER_UTILS_H

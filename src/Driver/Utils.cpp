@@ -77,4 +77,24 @@ std::optional<std::string> GetDarwinSDKVersion(const std::string& sdkPath)
     }
     return std::nullopt;
 }
+
+std::optional<std::string> DiagnoseMissingCRuntime(
+    const std::optional<std::string>& resolvedCrti, const std::vector<std::string>& crtRuntimePaths)
+{
+    if (resolvedCrti.has_value()) {
+        return std::nullopt;
+    }
+    std::string message =
+        "cannot find the OpenHarmony C runtime object 'crti.o' in any C runtime library path. The sysroot "
+        "is likely missing or misconfigured: check the '--sysroot' and '-B'/'--toolchain' options so they "
+        "point to a valid musl sysroot that provides crti.o/crtn.o/libc/libm. Otherwise linking will fail "
+        "with \"cannot open crti.o\".";
+    if (!crtRuntimePaths.empty()) {
+        message += "\n  searched C runtime library paths:";
+        for (const auto& path : crtRuntimePaths) {
+            message += "\n    " + path;
+        }
+    }
+    return message;
+}
 } // namespace Cangjie
