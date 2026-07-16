@@ -83,7 +83,7 @@ Value* Translator::TranslateVArrayAssign(const AssignExpr& assign)
         .kind = IntrinsicKind::VARRAY_GET,
         .args = std::vector<Value*>({loadLHSValue->GetResult(), index})
     };
-    auto lhs = CreateAndAppendExpression<Intrinsic>(lhsType, arrGetContext, currentBlock)->GetResult();
+    auto lhs = CreateAndAppendExpression<Intrinsic>(loc, lhsType, arrGetContext, currentBlock)->GetResult();
     if (assign.op == TokenKind::AND_ASSIGN) {
         auto res = TransShortCircuitAnd(lhs, *assign.rightExpr, loc);
         CreateAndAppendVArraySet(*lhsBase, *res, *index, *lhsType, loc);
