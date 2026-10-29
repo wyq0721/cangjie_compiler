@@ -362,7 +362,8 @@ template <> flatbuffers::Offset<PackageFormat::Type> CHIRSerializer::CHIRSeriali
 {
     auto kind = PackageFormat::CHIRTypeKind(obj.GetTypeKind());
     auto argTys = GetId<Type>(obj.GetTypeArgs());
-    return PackageFormat::CreateTypeDirect(builder, kind, argTys.empty() ? nullptr : &argTys);
+    auto modal = PackageFormat::CreateModalInfo(builder, PackageFormat::Mode(obj.GetModalInfo().Local()));
+    return PackageFormat::CreateTypeDirect(builder, kind, argTys.empty() ? nullptr : &argTys, modal);
 }
 
 template <>
@@ -454,8 +455,12 @@ flatbuffers::Offset<PackageFormat::Parameter> CHIRSerializer::CHIRSerializerImpl
     auto ownedLambda = GetId<Expression>(obj.GetOwnerLambda());
     auto srcCodeIdentifier = obj.GetSrcCodeIdentifier();
     auto annoInfo = Serialize<PackageFormat::AnnoInfo>(obj.GetAnnoInfo());
+    uint32_t paramDftValFunc = 0;
+    if (auto* dftFunc = DynamicCast<Function*>(obj.GetParamDftValFunc())) {
+        paramDftValFunc = GetId<Value>(dftFunc);
+    }
     return PackageFormat::CreateParameterDirect(
-        builder, base, ownedFunc, ownedLambda, srcCodeIdentifier.data(), annoInfo);
+        builder, base, ownedFunc, ownedLambda, srcCodeIdentifier.data(), annoInfo, paramDftValFunc);
 }
 
 template <>
@@ -537,7 +542,7 @@ flatbuffers::Offset<PackageFormat::Function> CHIRSerializer::CHIRSerializerImpl:
             oriLambdaGenericTypeParams.empty() ? nullptr : &oriLambdaGenericTypeParams);
     }
     auto genericTypeParams = GetId<Type>(obj.GetGenericTypeParams());
-    auto paramDftValHostFunc = GetId<Value>(obj.GetParamDftValHostFunc());
+    auto paramDftValHostParam = GetId<Value>(obj.GetParamDftValHostParam());
 
     uint32_t body = 0;
     std::vector<uint32_t> params = GetId<Value>(obj.GetParams());
@@ -551,7 +556,7 @@ flatbuffers::Offset<PackageFormat::Function> CHIRSerializer::CHIRSerializerImpl:
 
     return PackageFormat::CreateFunctionDirect(builder, globalSymbolOffset, genericDecl, funcKind, obj.IsFastNative(),
         obj.IsCFFIWrapper(), originalLambdaInfoOffset, genericTypeParams.empty() ? nullptr : &genericTypeParams,
-        paramDftValHostFunc, body, params.empty() ? nullptr : &params, retVal, propLoc, obj.localId, obj.blockId,
+        paramDftValHostParam, body, params.empty() ? nullptr : &params, retVal, propLoc, obj.localId, obj.blockId,
         obj.blockGroupId);
 }
 
@@ -703,6 +708,12 @@ static PackageFormat::CHIRExprKind ToPackageExprKind(const Expression& expr)
         case ExprKind::INTRINSIC:               return PackageFormat::CHIRExprKind_Intrinsic;
         case ExprKind::GET_RTTI:                return PackageFormat::CHIRExprKind_GetRtti;
         case ExprKind::GET_RTTI_STATIC:         return PackageFormat::CHIRExprKind_GetRttiStatic;
+        case ExprKind::EXCLAVE:
+            return PackageFormat::CHIRExprKind_Exclave;
+        case ExprKind::START_REGION:
+            return PackageFormat::CHIRExprKind_StartRegion;
+        case ExprKind::END_REGION:
+            return PackageFormat::CHIRExprKind_EndRegion;
         case ExprKind::FORIN_RANGE:
         case ExprKind::FORIN_ITER:
         case ExprKind::FORIN_CLOSED_RANGE:
@@ -962,9 +973,12 @@ flatbuffers::Offset<PackageFormat::Lambda> CHIRSerializer::CHIRSerializerImpl::S
     auto body = GetId<Value>(obj.GetBody());
     auto retVal = GetId<Value>(obj.GetReturnValue());
     auto isConst = obj.IsCompileTimeValue();
+    auto paramDftValHostParam = GetId<Value>(obj.GetParamDftValHostParam());
+    auto genericDecl = GetId<Expression>(obj.GetGenericDecl());
     return PackageFormat::CreateLambdaDirect(builder, base, funcTy, isLocalFunc, identifier.data(),
         srcCodeIdentifier.data(), params.empty() ? nullptr : &params,
-        genericTypeParams.empty() ? nullptr : &genericTypeParams, body, retVal, isConst);
+        genericTypeParams.empty() ? nullptr : &genericTypeParams, body, retVal, isConst, paramDftValHostParam,
+        genericDecl);
 }
 
 // ======================= Custom Type Def Serializers =========================
@@ -1304,6 +1318,7 @@ template <> flatbuffers::Offset<void> CHIRSerializer::CHIRSerializerImpl::Dispat
                 StaticCast<const UnaryExpressionBase&>(obj)).Union();
         case ExprKind::GOTO:
         case ExprKind::EXIT:
+        case ExprKind::EXCLAVE:
         case ExprKind::RAISE_EXCEPTION:
         case ExprKind::LOAD:
         case ExprKind::STORE:
@@ -1315,6 +1330,8 @@ template <> flatbuffers::Offset<void> CHIRSerializer::CHIRSerializerImpl::Dispat
         case ExprKind::BOX:
         case ExprKind::UNBOX_TO_VALUE:
         case ExprKind::GET_EXCEPTION:
+        case ExprKind::START_REGION:
+        case ExprKind::END_REGION:
         case ExprKind::RAW_ARRAY_LITERAL_INIT:
         case ExprKind::RAW_ARRAY_INIT_BY_VALUE:
         case ExprKind::VARRAY:
