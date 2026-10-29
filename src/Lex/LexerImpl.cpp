@@ -97,4 +97,9 @@ std::size_t Lexer::GetCurrentToken() const
 {
     return impl->GetCurrentToken();
 }
+
+bool Lexer::HasTokens() const
+{
+    return !impl->tokens.empty();
+}
 } // namespace Cangjie

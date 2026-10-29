@@ -148,6 +148,8 @@ public:
     bool StartCollectTokens();
     void StopCollectTokens(bool bStart);
     std::size_t GetCurrentToken() const;
+    /// True when Lexer was constructed from a Token vector (macro reparse / libast).
+    bool HasTokens() const;
 
 private:
     class LexerImpl* impl;

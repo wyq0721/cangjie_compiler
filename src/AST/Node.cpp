@@ -175,6 +175,10 @@ std::string CallExpr::ToString() const
         }
     }
     ss << NextSpan(")", curSpanBegin, rightParenPos, 1);
+    curSpanBegin = rightParenPos + Position{0, 0, 1};
+    if (modal) {
+        ss << NextSpan(modal.ToModalInfo().ToString(), curSpanBegin, modal.End());
+    }
     return ss.str();
 }
 
@@ -234,6 +238,7 @@ std::string MemberAccess::ToString() const
         curSpanBegin = dotPos + Position{0, 0, 1};
     }
     ss << NextSpan(field, curSpanBegin, field.Begin(), static_cast<int>(field.Length()));
+    curSpanBegin = field.GetRawEndPos();
     return ss.str();
 }
 
@@ -386,7 +391,7 @@ std::string PointerExpr::ToString() const
     curSpanBegin = curSpanEnd;
     auto pointeeTy = GetTy();
     if (pointeeTy && !pointeeTy->typeArgs.empty()) {
-        expr = Ty::ToString(pointeeTy->typeArgs[0]);
+        expr = pointeeTy->typeArgs[0]->String();
         curSpanEnd = curSpanBegin + Position{0, 0, static_cast<int>(expr.size())};
         ss << NextSpan(expr, curSpanBegin, curSpanEnd);
     }
@@ -519,7 +524,7 @@ std::set<Ptr<InterfaceTy>> InheritableDecl::GetSuperInterfaceTys() const
     std::set<Ptr<InterfaceTy>> ret;
     for (auto& types : inheritedTypes) {
         if (types && types->GetTy() && types->TyKind() == TypeKind::TYPE_INTERFACE) {
-            ret.insert(RawStaticCast<InterfaceTy*>(types->GetTy()));
+            ret.insert(RawStaticCast<InterfaceTy*>(types->DataTy()));
         }
     }
     return ret;
@@ -527,12 +532,12 @@ std::set<Ptr<InterfaceTy>> InheritableDecl::GetSuperInterfaceTys() const
 
 std::vector<Ptr<InterfaceTy>> InheritableDecl::GetStableSuperInterfaceTys() const
 {
-    auto cmp = [](const Ptr<InterfaceTy> ty1, const Ptr<InterfaceTy> ty2) { return CompTyByNames(ty1, ty2); };
+    auto cmp = [](Ptr<Ty> ty1, Ptr<Ty> ty2) { return CompTyByNames(ty1, ty2); };
 
     std::set<Ptr<InterfaceTy>, decltype(cmp)> ret(cmp);
     for (auto& types : inheritedTypes) {
         if (types && types->GetTy() && types->TyKind() == TypeKind::TYPE_INTERFACE) {
-            ret.emplace(RawStaticCast<InterfaceTy*>(types->GetTy()));
+            ret.emplace(RawStaticCast<InterfaceTy*>(types->DataTy()));
         }
     }
     return std::vector<Ptr<InterfaceTy>>(ret.begin(), ret.end());
@@ -548,7 +553,7 @@ void ClassLikeDecl::MarkAsJavaImpl()
     EnableAttr(Attribute::JAVA_IMPL);
 }
 
-std::vector<Ptr<ClassLikeDecl>> InheritableDecl::GetAllSuperDecls()
+std::vector<Ptr<ClassLikeDecl>> InheritableDecl::GetAllSuperDecls(bool obtainSpecific)
 {
     std::set<Ptr<ClassLikeDecl>> visited; // to avoid multiple paths or cycle
     std::vector<Ptr<ClassLikeDecl>> ret; // to guarantee order
@@ -562,16 +567,25 @@ std::vector<Ptr<ClassLikeDecl>> InheritableDecl::GetAllSuperDecls()
         auto curDecl = workList.front();
         workList.pop();
         for (auto& it : curDecl->inheritedTypes) {
-            if (auto clsTy = DynamicCast<ClassTy*>(it->GetTy()); clsTy && visited.count(clsTy->declPtr) == 0) {
-                workList.push(clsTy->declPtr);
-                visited.emplace(clsTy->declPtr);
-                ret.emplace_back(clsTy->declPtr);
-            } else if (auto interfaceTy = DynamicCast<InterfaceTy*>(it->GetTy());
-                interfaceTy && visited.count(interfaceTy->declPtr) == 0) {
-                workList.push(interfaceTy->declPtr);
-                visited.emplace(interfaceTy->declPtr);
-                ret.emplace_back(interfaceTy->declPtr);
+            if (!Ty::IsTyCorrect(it->DataTy())) {
+                continue;
             }
+            Ptr<ClassLikeDecl> declPtr = nullptr;
+            if (obtainSpecific && (it->DataTy()->IsClass() || it->DataTy()->IsInterface())) {
+                // If the declaration contains a specific version, 'GetDeclPtrOfTy' will by default obtain the specific
+                // version.
+                declPtr = Ty::GetDeclPtrOfTy<ClassLikeDecl>(it->DataTy());
+            } else if (auto clsTy = DynamicCast<ClassTy>(it->DataTy())) {
+                declPtr = clsTy->declPtr;
+            } else if (auto interfaceTy = DynamicCast<InterfaceTy>(it->DataTy())) {
+                declPtr = interfaceTy->declPtr;
+            }
+            if (declPtr == nullptr || visited.count(declPtr) != 0) {
+                continue;
+            }
+            workList.push(declPtr);
+            visited.emplace(declPtr);
+            ret.emplace_back(declPtr);
         }
     }
     return ret;
@@ -604,6 +618,10 @@ std::vector<Ptr<Decl>> Decl::GetMemberDeclPtrs() const
         }
     } else if (auto exd = DynamicCast<const ExtendDecl*>(this); exd) {
         for (auto& decl : exd->members) {
+            results.push_back(decl.get());
+        }
+    } else if (auto bid = DynamicCast<BuiltInDecl>(this)) {
+        for (auto& decl : bid->members) {
             results.push_back(decl.get());
         }
     }

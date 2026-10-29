@@ -13,21 +13,15 @@
 #ifndef CANGJIE_AST_WALKER_H
 #define CANGJIE_AST_WALKER_H
 
-#include <functional>
-#include <string>
-#include <utility>
 #include <atomic>
+#include <functional>
+#include <utility>
 
 #include "cangjie/AST/Node.h"
 
 namespace Cangjie::AST {
 /**
  * Enum class for visit action in the Walker.
- *
- * The values have been specially designed to make `STOP_NOW` has the highest priority when several values are combined
- * with `OR` operator.
- *
- * @see operator|(VisitAction, VisitAction)
  */
 enum class VisitAction : uint8_t {
     WALK_CHILDREN, /**< Continue to walk into child items. */
