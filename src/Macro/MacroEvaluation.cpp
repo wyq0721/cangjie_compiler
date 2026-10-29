@@ -142,6 +142,10 @@ bool HasMacroCallToEval(const std::string& moduleName, const TokenVector& inputT
     if (IsBuiltinAnnotation(moduleName, inputTokens[curIndex + 1].Value())) {
         return false;
     }
+    // @local! / @local? / @~local are modal type/this-mode, not macro calls.
+    if (IsModalAfterAt(inputTokens, curIndex)) {
+        return false;
+    }
     if (!IsIdentifierOrContextualKeyword(inputTokens[curIndex + 1].kind)) {
         return false;
     }
@@ -168,7 +172,7 @@ static bool HasMacroCallInTokens(const TokenVector& tokens, const std::string& m
                                  const std::string& currentIdentifier)
 {
     for (size_t i = 0; i + 1 < tokens.size(); i++) {
-        if (tokens[i].Value() == "@" &&
+        if (tokens[i].Value() == "@" && !IsModalAfterAt(tokens, i) &&
             IsIdentifierOrContextualKeyword(tokens[i + 1].kind) &&
             !IsBuiltinAnnotation(moduleName, tokens[i + 1].Value()) &&
             tokens[i + 1].Value() != currentIdentifier) {
@@ -849,9 +853,11 @@ void MacroEvaluation::CreateMacroCallTree(MacroCall& macCall, bool reEval)
     auto tokenSize = inputTokens.size();
     while (curIndex < tokenSize) {
         auto posTmp = inputTokens[curIndex].Begin();
-        // if current Token is not escaped @ or not macrocall like @MacroIdentidier, should be error
+        // Bare `@` that is neither an escaped quote-`@`, a macro call `@Name`, nor a modal
+        // `@local!` / `@local?` / `@~local` is illegal in macro input/output.
         if (inputTokens[curIndex].kind == TokenKind::AT &&
             std::find(escapePosVec.begin(), escapePosVec.end(), posTmp) == escapePosVec.end() &&
+            !IsModalAfterAt(inputTokens, curIndex) &&
             (curIndex == tokenSize - 1 || !IsIdentifierOrContextualKeyword(inputTokens[curIndex + 1].kind))) {
             (void)ci->diag.Diagnose(posTmp, DiagKind::macro_expand_invalid_input_tokens);
         }
