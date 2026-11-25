@@ -323,6 +323,20 @@ void ToCHIR::UselessFuncElimination(const std::string& passName)
     DumpCHIRToFile("UselessFuncElimination");
 }
 
+void ToCHIR::UnusedImportedInstantiationElimination()
+{
+    // From O2 on, `UselessFuncElimination` already removes these functions. Incremental compilation and coverage
+    // keep unused functions on purpose, the same as `UselessFuncElimination`.
+    if (opts.IsCHIROptimizationLevelOverO2() || opts.enableCoverage || opts.enIncrementalCompilation ||
+        chirPkg->GetName() == Cangjie::REFLECT_PACKAGE_NAME) {
+        return;
+    }
+    Utils::ProfileRecorder recorder("CHIR", "UnusedImportedInstantiationElimination");
+    auto dce = DeadCodeElimination(builder, diag, *chirPkg);
+    dce.UnusedImportedInstantiationElimination(*chirPkg, opts);
+    DumpCHIRToFile("UnusedImportedInstantiationElimination");
+}
+
 void ToCHIR::ReportUnusedCode()
 {
     Utils::ProfileRecorder recorder("RulesChecking", "ReportUnusedCode");
@@ -1182,6 +1196,9 @@ bool ToCHIR::Run()
     if (!AnnotationChecker(*chirPkg, diag).Run()) {
         return false;
     }
+    // 11. below O2, private instantiations of imported generics that are no longer used (e.g. const members that
+    //     were instantiated only for const evaluation) are removed here, so that their bodies do not reach codegen.
+    UnusedImportedInstantiationElimination();
 
     RunSanitizerCoverage();
     if (opts.enIncrementalCompilation) {
