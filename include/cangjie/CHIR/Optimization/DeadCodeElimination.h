@@ -12,6 +12,7 @@
 #include "cangjie/CHIR/IR/Expression/Terminator.h"
 #include "cangjie/CHIR/IR/Package.h"
 #include "cangjie/Utils/TaskQueue.h"
+#include <functional>
 
 namespace Cangjie::CHIR {
 /**
@@ -33,6 +34,19 @@ public:
      * @param opts global options from Cangjie inputs.
      */
     void UselessFuncElimination(Package& package, const GlobalOptions& opts);
+
+    /**
+     * @brief remove unused private instantiations of imported generic functions.
+     *
+     * Such a function is a private copy of another package's generic code, instantiated into this package
+     * (e.g. members of `Array<Int64>` that are instantiated at every optimization level for const evaluation).
+     * It has internal linkage, so nothing outside this package can reference it; once it has no users in CHIR
+     * it is dead. Removing it keeps its body, and the runtime/stdlib symbols the body references, out of the
+     * final binary when `UselessFuncElimination` does not run (below O2).
+     * @param package package to do dead code elimination.
+     * @param opts global options from Cangjie inputs.
+     */
+    void UnusedImportedInstantiationElimination(Package& package, const GlobalOptions& opts);
 
     /**
      * @brief process to do useless expr elimination.
@@ -93,6 +107,8 @@ private:
 
     // =============== Functions for Useless Function Elimination =============== //
     bool CheckUselessFunc(const Function& func, const GlobalOptions& opts, bool usingReflectPackage);
+    void EraseUselessFuncs(
+        Package& package, const GlobalOptions& opts, const std::function<bool(const Function&)>& isCandidate);
 
     // =============== Functions for Unreachable Block Elimination =============== //
     bool CheckUselessBlock(const Block& block) const;
