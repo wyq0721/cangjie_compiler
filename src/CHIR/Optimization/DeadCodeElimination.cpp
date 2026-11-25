@@ -86,7 +86,36 @@ bool ReflectPackageIsUsed(const Package& package) {
 }
 }  // namespace
 
+namespace {
+/**
+ * A private copy of an imported generic function: it was instantiated in this package from a generic decl that
+ * is defined in another package, and its linkage is internal. Only this package can reference it.
+ */
+bool IsPrivateInstantiationOfImportedGeneric(const Function& func)
+{
+    if (func.TestAttr(Attribute::IMPORTED)) {
+        return false;
+    }
+    auto genericDecl = func.GetGenericDecl();
+    if (genericDecl == nullptr || !genericDecl->TestAttr(Attribute::IMPORTED)) {
+        return false;
+    }
+    return func.Get<LinkTypeInfo>() == Cangjie::Linkage::INTERNAL;
+}
+} // namespace
+
 void DeadCodeElimination::UselessFuncElimination(Package& package, const GlobalOptions& opts)
+{
+    EraseUselessFuncs(package, opts, [](const Function& func) { return !func.TestAttr(Attribute::IMPORTED); });
+}
+
+void DeadCodeElimination::UnusedImportedInstantiationElimination(Package& package, const GlobalOptions& opts)
+{
+    EraseUselessFuncs(package, opts, IsPrivateInstantiationOfImportedGeneric);
+}
+
+void DeadCodeElimination::EraseUselessFuncs(
+    Package& package, const GlobalOptions& opts, const std::function<bool(const Function&)>& isCandidate)
 {
     auto allFuncs = package.GetGlobalFunctions();
     auto usingReflectPackage = ReflectPackageIsUsed(curPkg);
@@ -95,7 +124,7 @@ void DeadCodeElimination::UselessFuncElimination(Package& package, const GlobalO
         funcsToBeRemoved.clear();
         auto it = allFuncs.begin();
         while (it != allFuncs.end()) {
-            if ((*it)->TestAttr(Attribute::IMPORTED)) {
+            if (!isCandidate(**it)) {
                 ++it;
                 continue;
             }
