@@ -134,6 +134,7 @@ private:
     void UnreachableBranchReporter();
     void ClearMatchMetadata();
     void UselessFuncElimination(const std::string& passName);
+    void UnusedImportedInstantiationElimination();
     void RedundantLoadElimination();
     void UselessAllocateElimination();
     void RunGetRefToArrayElemOpt();
