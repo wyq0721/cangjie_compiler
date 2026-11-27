@@ -14,6 +14,7 @@
 #define CANGJIE_SEMA_MEMBER_SIGNATURE_H
 
 #include "cangjie/AST/Node.h"
+#include "cangjie/AST/ASTCasting.h"
 
 namespace Cangjie {
 
@@ -47,6 +48,18 @@ struct MemberSignature {
 };
 
 using MemberMap = std::multimap<std::string, MemberSignature>;
+
+/**
+ * Cheap pre-check before comparing function signatures: substituting generic types never changes the number of
+ * parameters, so two function types with different parameter counts can never have identical parameter types.
+ * Returns true when either type is not a function type, leaving that case to the caller's full check.
+ */
+inline bool HaveSameParamCount(AST::DataTy ty1, AST::DataTy ty2)
+{
+    auto funcTy1 = DynamicCast<AST::FuncTy>(ty1);
+    auto funcTy2 = DynamicCast<AST::FuncTy>(ty2);
+    return !funcTy1 || !funcTy2 || funcTy1->paramTys.size() == funcTy2->paramTys.size();
+}
 
 } // namespace Cangjie
 
