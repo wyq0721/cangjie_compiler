@@ -41,6 +41,17 @@ void MarkUpperBoundIgnored(const Node& node, Generic& generic)
     }
 }
 
+/**
+ * The cheap part of 'DiagnoseForInstantiatedMember': a pair can only collide after instantiation when both are
+ * functions with the same static-ness, 'this' modal and parameter count.
+ */
+bool MayCollideAfterInstantiation(const MemberSignature& parent, const MemberSignature& child)
+{
+    return parent.decl->TestAttr(Attribute::STATIC) == child.decl->TestAttr(Attribute::STATIC) &&
+        DynamicCast<FuncTy>(parent.ty) && DynamicCast<FuncTy>(child.ty) &&
+        GetThisParamModal(*parent.decl) == GetThisParamModal(*child.decl) && HaveSameParamCount(parent.ty, child.ty);
+}
+
 std::pair<ModalTy, Ptr<Decl>> GetRealReferenceType(const Node& node)
 {
     auto target = GetRealTarget(node.GetTarget());
@@ -74,7 +85,13 @@ void StructInheritanceChecker::CheckInstMemberSignatures(
     CheckMembersWithInheritedDecls(decl);
     MemberMap members;
     if (auto memberIt = structInheritedMembers.find(&decl); memberIt != structInheritedMembers.end()) {
-        members = memberIt->second;
+        // Only function members take part below: entries of other kinds are erased right after, and
+        // 'UpdateInheritedMemberIfNeeded' never matches entries of a different kind.
+        for (const auto& [identifier, sig] : memberIt->second) {
+            if (sig.decl->astKind == ASTKind::FUNC_DECL) {
+                members.emplace(identifier, sig);
+            }
+        }
     }
     for (auto& member : decl.GetMemberDecls()) {
         CJC_NULLPTR_CHECK(member);
@@ -115,6 +132,11 @@ void StructInheritanceChecker::CheckInstMemberSignatures(
         memberSig.structTy = getAndUpdateCache(memberSig.structTy);
         auto matches = members.equal_range(identifier);
         for (auto it = matches.first; it != matches.second; ++it) {
+            // Pairs differing in static-ness, 'this' modal or parameter count can never collide; skipping them
+            // here also keeps them out of the cached re-diagnose list, where they would be no-ops.
+            if (!MayCollideAfterInstantiation(it->second, memberSig)) {
+                continue;
+            }
             auto parent = it->second;
             parent.structTy = getAndUpdateCache(parent.structTy);
             // Check & Diagnose for instantiated collision.
@@ -221,7 +243,10 @@ VisitAction StructInheritanceChecker::CheckInstDupFuncsRecursively(Node& node)
     if (target->IsNominalDecl() && target->TestAttr(Attribute::GENERIC)) {
         // NOTE: We must guarantee 'target' decl does not have 'generic infinite instantiation' status
         // before checking for its instantiated status, and also avoid re-entry.
-        if (instantiatedDecls.insert(std::make_pair(target, std::vector<DataTy>{})).second) {
+        // Imported generic declarations were already checked without type arguments (including infinite
+        // instantiation) when their own package was compiled, so only walk declarations of the current package.
+        if (instantiatedDecls.insert(std::make_pair(target, std::vector<DataTy>{})).second &&
+            !target->TestAttr(Attribute::IMPORTED)) {
             Walker(target, [this](auto node) { return CheckInstDupFuncsRecursively(*node); }).Walk();
         }
     }
