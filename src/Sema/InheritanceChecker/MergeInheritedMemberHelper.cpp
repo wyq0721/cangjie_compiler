@@ -155,18 +155,20 @@ MemberSignature StructInheritanceChecker::UpdateInheritedMemberIfNeeded(
         bool shouldUpdate = true;
         bool inconsistentType = needImplement && (parent.ty != child.ty || parent.thisMode != child.thisMode);
         if (parent.decl->IsFunc()) {
-            if (child.decl->TestAttr(Attribute::GENERIC) && parent.decl->TestAttr(Attribute::GENERIC)) {
+            bool sameStatus = parent.decl->TestAttr(Attribute::STATIC) == child.decl->TestAttr(Attribute::STATIC) &&
+                child.decl->TestAttr(Attribute::GENERIC) == parent.decl->TestAttr(Attribute::GENERIC);
+            // Cheap rejections first: when status, 'this' modal or parameter count differ, the pair can never be
+            // the same signature, so the generic mapping and type substitution below are not needed.
+            bool mayMatch = sameStatus && parent.thisMode == child.thisMode && HaveSameParamCount(parent.ty, child.ty);
+            if (mayMatch && child.decl->TestAttr(Attribute::GENERIC) && parent.decl->TestAttr(Attribute::GENERIC)) {
                 TypeSubst typeMapping = typeManager.GenerateGenericMappingFromGeneric(
                     *RawStaticCast<FuncDecl*>(parent.decl), *RawStaticCast<FuncDecl*>(child.decl));
                 parent.ty = typeManager.GetInstantiatedTy(parent.ty, typeMapping);
             }
             auto parentFuncTy = DynamicCast<FuncTy>(parent.ty);
             auto childFuncTy = DynamicCast<FuncTy>(child.ty);
-            bool sameStatus = parent.decl->TestAttr(Attribute::STATIC) == child.decl->TestAttr(Attribute::STATIC) &&
-                child.decl->TestAttr(Attribute::GENERIC) == parent.decl->TestAttr(Attribute::GENERIC);
-            shouldUpdate = sameStatus && parentFuncTy && childFuncTy &&
-                typeManager.IsFuncParameterTypesIdentical(*parentFuncTy, *childFuncTy) &&
-                parent.thisMode == child.thisMode;
+            shouldUpdate = mayMatch && parentFuncTy && childFuncTy &&
+                typeManager.IsFuncParameterTypesIdentical(*parentFuncTy, *childFuncTy);
             auto consistent = ComputeInconsistentTypes(
                 child, parent, updated, {shouldUpdate, inheritedInterfaces}, inconsistentTypes);
             inconsistentType = inconsistentType && !consistent;
