@@ -399,7 +399,7 @@ void StructInheritanceChecker::CheckMembersWithInheritedDecls(const InheritableD
         member.second.isInheritedInterface = false;
         member.second.extendDecl = nullptr;
     }
-    structInheritedMembers.emplace(&decl, interfaceMembers);
+    structInheritedMembers.emplace(&decl, std::move(interfaceMembers));
 }
 
 /**
@@ -1414,6 +1414,12 @@ bool StructInheritanceChecker::CheckFuncImplRelation(const MemberSignature& pare
     if (!parentDecl->IsFunc()) {
         return false;
     }
+    // Cheap rejections first: a different 'this' modal or parameter count can never be the same signature,
+    // so skip the generic mapping and type substitution below for such pairs.
+    if (GetThisParamModal(*parentDecl) != GetThisParamModal(*child.decl) ||
+        !HaveSameParamCount(parent.ty, child.ty)) {
+        return false;
+    }
     auto parentTy = parent.ty;
     auto parentFunc = RawStaticCast<FuncDecl*>(parent.decl);
     auto childFunc = RawStaticCast<const FuncDecl*>(child.decl);
@@ -1508,13 +1514,24 @@ void StructInheritanceChecker::CheckMutModifierCompatible(const MemberSignature&
 std::vector<Ptr<const ExtendDecl>> StructInheritanceChecker::GetAllNeedCheckExtended()
 {
     std::vector<Ptr<const ExtendDecl>> needCheckExtendDecls = {};
-    // If the extend decls are all imported from same package, do not check their inheritance again.
-    auto filter = [&needCheckExtendDecls](const std::set<Ptr<ExtendDecl>> extends) -> void {
+    // If the extend decls are all imported and one of their packages depends (directly or indirectly) on all the
+    // others, their inheritance was already checked when that package was compiled, so do not check it again.
+    auto alreadyChecked = [this](const std::unordered_set<std::string>& pkgNames) {
+        if (pkgNames.size() <= 1) {
+            return true;
+        }
+        return std::any_of(pkgNames.cbegin(), pkgNames.cend(), [this, &pkgNames](const std::string& pkgName) {
+            const auto& deps = importManager.GetAllDependentPackageNames(pkgName);
+            return std::all_of(pkgNames.cbegin(), pkgNames.cend(),
+                [&pkgName, &deps](const std::string& other) { return other == pkgName || deps.count(other) > 0; });
+        });
+    };
+    auto filter = [&needCheckExtendDecls, &alreadyChecked](const std::set<Ptr<ExtendDecl>>& extends) -> void {
         std::unordered_set<std::string> pkgNames;
         if (std::all_of(extends.cbegin(), extends.cend(), [&pkgNames](auto it) {
                 pkgNames.emplace(it->fullPackageName);
-                return it->TestAttr(Attribute::IMPORTED) && pkgNames.size() == 1;
-            })) {
+                return it->TestAttr(Attribute::IMPORTED);
+            }) && alreadyChecked(pkgNames)) {
             return;
         }
         std::set<Ptr<ExtendDecl>, CmpNodeByPos> sortedExtends;
